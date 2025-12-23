@@ -159,7 +159,7 @@ export default function HomePage() {
           {/* RIGHT ICONS */}
           <div className="flex items-center gap-4">
             <a
-              href="https://github.com/"
+              href="https://github.com/anantgupta001/vitor"
               target="_blank"
               className="hover:text-gray-700"
             >
@@ -169,7 +169,7 @@ export default function HomePage() {
             </a>
 
             <a
-              href="https://linkedin.com/"
+              href="https://www.linkedin.com/in/anantgupta7628/"
               target="_blank"
               className="hover:text-gray-700"
             >
