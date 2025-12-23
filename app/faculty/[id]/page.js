@@ -4,26 +4,39 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useAuth } from "@/app/context/AuthContext";
 import ReviewForm from "@/components/ReviewForm";
 
 export default function FacultyDetailPage() {
-  const { id } = useParams(); // ✅ THIS IS THE FIX
+  const { id } = useParams();
+  const { user } = useAuth(); // ✅ FIX: user defined
   const [faculty, setFaculty] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !db) return;
 
     async function load() {
-      const fSnap = await getDoc(doc(db, "faculties", id));
-      const rSnap = await getDocs(
-        collection(db, "faculties", id, "reviews")
-      );
+      try {
+        const facultyRef = doc(db, "faculties", id);
+        const reviewsRef = collection(db, "faculties", id, "reviews");
 
-      setFaculty(fSnap.data());
-      setReviews(rSnap.docs.map((d) => d.data()));
-      setLoading(false);
+        const fSnap = await getDoc(facultyRef);
+        const rSnap = await getDocs(reviewsRef);
+
+        if (fSnap.exists()) {
+          setFaculty(fSnap.data());
+        } else {
+          setFaculty(null);
+        }
+
+        setReviews(rSnap.docs.map((d) => d.data()));
+      } catch (err) {
+        console.error("Failed to load faculty:", err);
+      } finally {
+        setLoading(false);
+      }
     }
 
     load();
@@ -39,6 +52,7 @@ export default function FacultyDetailPage() {
 
         {/* ========== LEFT COLUMN ========== */}
         <div className="space-y-6">
+
           {/* PHOTO CARD */}
           <div className="bg-white rounded-2xl shadow p-4">
             <img
@@ -51,22 +65,33 @@ export default function FacultyDetailPage() {
             </p>
           </div>
 
-          <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
-            <span className="text-amber-600 text-lg">⚠️</span>
-            <p className="text-sm text-amber-800 leading-snug">
-              Please sign in using your official college ID to submit a review. This helps us prevent spam and maintain authenticity.
-            </p>
-          </div>
+          {/* WARNING IF NOT LOGGED IN */}
+          {!user && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
+              <span className="text-amber-600 text-lg">⚠️</span>
+              <p className="text-sm text-amber-800 leading-snug">
+                Please sign in using your official college ID to submit a review.
+                This helps us prevent spam and maintain authenticity.
+              </p>
+            </div>
+          )}
 
           {/* WRITE REVIEW */}
           <div className="bg-white rounded-2xl shadow p-5">
             <h3 className="font-semibold mb-3">Write a Review</h3>
-            <ReviewForm facultyId={id} />
+            {user ? (
+              <ReviewForm facultyId={id} />
+            ) : (
+              <p className="text-sm text-gray-500">
+                Sign in to submit a review.
+              </p>
+            )}
           </div>
         </div>
 
         {/* ========== RIGHT COLUMN ========== */}
         <div className="lg:col-span-2 space-y-8">
+
           {/* BASIC INFO */}
           <div>
             <h1 className="text-2xl font-bold">{faculty.name}</h1>
@@ -116,7 +141,7 @@ export default function FacultyDetailPage() {
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <p className="font-semibold">
-                      {r.user || "Anonymous"}
+                      Anonymous
                     </p>
                     <Stars rating={r.overall} />
                     <span className="text-sm text-gray-600">
@@ -152,9 +177,11 @@ function Stat({ title, value, isCount }) {
     <div className="bg-white rounded-xl shadow-sm p-4 text-center">
       <div className="text-2xl font-bold">
         {value !== undefined && value !== null
-          ? value.toFixed?.(2) ?? value
+          ? isCount
+            ? formatCount(value)
+            : value.toFixed(2)
           : "—"}
-        {!isCount && value && (
+        {!isCount && value != null && (
           <span className="text-sm"> /5</span>
         )}
       </div>
@@ -165,7 +192,7 @@ function Stat({ title, value, isCount }) {
   );
 }
 
-function Stars({ rating }) {
+function Stars({ rating = 0 }) {
   return (
     <div className="flex text-yellow-400 text-sm">
       {Array.from({ length: 5 }).map((_, i) => (
@@ -175,4 +202,9 @@ function Stars({ rating }) {
       ))}
     </div>
   );
+}
+
+function formatCount(num) {
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
+  return num;
 }
