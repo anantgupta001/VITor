@@ -29,16 +29,18 @@ export default function ReviewForm({ facultyId }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleChange = (key, value) => {
+  const handleRatingChange = (key, value) => {
     setRatings((prev) => ({ ...prev, [key]: value }));
     setError("");
   };
 
-  /* 🔒 STRICT VALIDATION */
+  /* ===== VALIDATION FLAGS ===== */
   const allRated = Object.values(ratings).every((v) => v > 0);
-  const commentValid = comment.trim().length >= 10; // minimum 10 chars
+  const trimmedComment = comment.trim();
+  const commentValid = trimmedComment.length >= 10;
 
   const submit = async () => {
+    /* 🔒 HARD STOPS */
     if (!user) {
       setError("Login required to submit review");
       return;
@@ -69,13 +71,19 @@ export default function ReviewForm({ facultyId }) {
 
       await runTransaction(db, async (tx) => {
         const facultySnap = await tx.get(facultyRef);
-        const prev = facultySnap.exists() ? facultySnap.data() : {};
+        const reviewSnap = await tx.get(reviewRef);
 
-        const count = prev.reviewCount || 0;
-        const newCount = count + 1;
+        const facultyData = facultySnap.exists()
+          ? facultySnap.data()
+          : {};
 
-        const avg = (oldAvg = 0, val) =>
-          (oldAvg * count + val) / newCount;
+        const oldCount = facultyData.reviewCount || 0;
+        const oldReview = reviewSnap.exists()
+          ? reviewSnap.data()
+          : null;
+
+        const isNewReview = !oldReview;
+        const newCount = isNewReview ? oldCount + 1 : oldCount;
 
         const overall =
           (ratings.attendance +
@@ -84,34 +92,65 @@ export default function ReviewForm({ facultyId }) {
             ratings.approachability) /
           4;
 
-        /* Review document */
+        /* helper to recalc averages */
+        const recalcAvg = (oldAvg = 0, oldVal = 0, newVal) => {
+          if (isNewReview) {
+            return (oldAvg * oldCount + newVal) / newCount;
+          }
+          // update existing review
+          return (oldAvg * oldCount - oldVal + newVal) / oldCount;
+        };
+
+        /* WRITE / UPDATE REVIEW */
         tx.set(reviewRef, {
           ...ratings,
           overall,
-          comment: comment.trim(),
+          comment: trimmedComment,
           userId: user.uid,
           createdAt: serverTimestamp(),
         });
 
-        /* Faculty aggregates */
+        /* UPDATE FACULTY AGGREGATES */
         tx.set(
           facultyRef,
           {
             reviewCount: newCount,
-            avgAttendance: avg(prev.avgAttendance, ratings.attendance),
-            avgCorrection: avg(prev.avgCorrection, ratings.correction),
-            avgTeaching: avg(prev.avgTeaching, ratings.teaching),
-            avgApproachability: avg(
-              prev.avgApproachability,
+
+            avgAttendance: recalcAvg(
+              facultyData.avgAttendance,
+              oldReview?.attendance,
+              ratings.attendance
+            ),
+
+            avgCorrection: recalcAvg(
+              facultyData.avgCorrection,
+              oldReview?.correction,
+              ratings.correction
+            ),
+
+            avgTeaching: recalcAvg(
+              facultyData.avgTeaching,
+              oldReview?.teaching,
+              ratings.teaching
+            ),
+
+            avgApproachability: recalcAvg(
+              facultyData.avgApproachability,
+              oldReview?.approachability,
               ratings.approachability
             ),
-            avgRating: avg(prev.avgRating, overall),
+
+            avgRating: recalcAvg(
+              facultyData.avgRating,
+              oldReview?.overall,
+              overall
+            ),
           },
           { merge: true }
         );
       });
 
-      /* Reset form */
+      /* RESET FORM */
       setRatings({
         attendance: 0,
         correction: 0,
@@ -139,7 +178,7 @@ export default function ReviewForm({ facultyId }) {
           <select
             value={ratings[f.key]}
             onChange={(e) =>
-              handleChange(f.key, Number(e.target.value))
+              handleRatingChange(f.key, Number(e.target.value))
             }
             className="w-full border rounded-lg px-3 py-2 text-sm"
           >
