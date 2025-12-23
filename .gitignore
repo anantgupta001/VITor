@@ -12,8 +12,8 @@
 .env.development
 
 # firebase / admin keys
-serviceAccount*.json
-scripts/**/serviceAccount*.json
+serviceAccountKey.json
+scripts/admin/serviceAccountKey.json
 
 # logs
 npm-debug.log*
