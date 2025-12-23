@@ -1,132 +1,201 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
-import { db } from "@/lib/firebase";
+import ReviewForm from "@/components/ReviewForm";
+
 import {
   collection,
-  addDoc,
-  getDocs,
+  onSnapshot,
   query,
-  where,
-  serverTimestamp,
+  orderBy,
+  doc,
 } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-export default function FacultyPage() {
+export default function FacultyDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
   const { user } = useAuth();
 
   const [faculty, setFaculty] = useState(null);
   const [reviews, setReviews] = useState([]);
-  const [rating, setRating] = useState(5);
-  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  // ✅ LOAD FACULTY
+  /* ================= FACULTY (LIVE) ================= */
   useEffect(() => {
-    fetch("/api/faculties")
-      .then(res => res.json())
-      .then(data => {
-        const found = data.find(
-          f => String(f.id) === String(id)
-        );
-        setFaculty(found || null);
-      });
+    if (!id) return;
+
+    const facultyId = String(id);
+    const facultyRef = doc(db, "faculties", facultyId);
+
+    const unsubscribe = onSnapshot(facultyRef, (snap) => {
+      if (snap.exists()) {
+        setFaculty(snap.data());
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, [id]);
 
-  // ✅ LOAD REVIEWS
+  /* ================= REVIEWS (LIVE) ================= */
   useEffect(() => {
-    const loadReviews = async () => {
-      const q = query(
-        collection(db, "reviews"),
-        where("facultyId", "==", Number(id))
-      );
-      const snap = await getDocs(q);
-      setReviews(snap.docs.map(d => d.data()));
-    };
-    loadReviews();
-  }, [id]);
+    if (!id) return;
 
-  if (!faculty) {
-    return (
-      <div className="p-10 text-center text-xl">
-        Faculty not found
-      </div>
+    const facultyId = String(id);
+
+    const q = query(
+      collection(db, "faculties", facultyId, "reviews"),
+      orderBy("createdAt", "desc")
     );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setReviews(list);
+    });
+
+    return () => unsubscribe();
+  }, [id]);
+
+  /* ================= STATES ================= */
+  if (loading) {
+    return <div className="p-10 text-gray-600">Loading faculty details...</div>;
   }
 
+  if (!faculty) {
+    return <div className="p-10 text-red-600">Faculty not found</div>;
+  }
+
+  /* ================= UI ================= */
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10">
-      <div className="grid md:grid-cols-[280px_1fr] gap-8">
-        <img
-          src={faculty.photo}
-          className="w-64 h-64 object-cover rounded-xl shadow"
-          alt={faculty.name}
-        />
+    <div className="faculty-page">
+      <div className="faculty-container">
 
-        <div>
-          <h1 className="text-3xl font-bold">{faculty.name}</h1>
-          <p className="text-lg">{faculty.designation}</p>
-          <p className="text-gray-600">{faculty.department}</p>
-          <p className="mt-4 text-sm">{faculty.researchArea}</p>
-        </div>
-      </div>
+        {/* BACK */}
+        <button
+          onClick={() => router.back()}
+          className="text-sm text-muted mb-6 hover:underline"
+        >
+          ← Back
+        </button>
 
-      <div className="mt-12">
-        <h2 className="text-2xl font-semibold mb-4">Reviews</h2>
+        {/* TOP LAYOUT */}
+        <div className="faculty-layout">
 
-        {reviews.map((r, i) => (
-          <div key={i} className="border p-4 mb-3 rounded">
-            <p className="font-semibold">{r.user}</p>
-            <p>⭐ {r.rating}</p>
-            <p>{r.text}</p>
+          {/* LEFT: PHOTO + REVIEW */}
+          <div>
+            <div className="card faculty-photo p-4">
+              <img src={faculty.photo} alt={faculty.name} />
+              <div className="photo-name">{faculty.name}</div>
+            </div>
+
+            <div className="mt-6">
+              {user ? (
+                <div className="card-muted p-4">
+                  <p className="font-semibold mb-2">Write a Review</p>
+                  <ReviewForm facultyId={id} />
+                </div>
+              ) : (
+                <div className="card-muted p-4 text-sm text-muted">
+                  🔒 Login required to write a review
+                </div>
+              )}
+            </div>
           </div>
-        ))}
+
+          {/* RIGHT: INFO + STATS */}
+          <div className="space-y-6">
+
+            {/* INFO */}
+            <div className="card p-7">
+              <h1 className="text-2xl font-bold mb-1">
+                {faculty.name}
+              </h1>
+              <p className="font-medium">{faculty.designation}</p>
+              <p className="text-muted">{faculty.department}</p>
+
+              <div className="soft-divider" />
+
+              <p className="section-title">Specialization</p>
+              <p className="text-muted leading-relaxed">
+                {faculty.researchArea}
+              </p>
+            </div>
+
+            {/* STATS */}
+            <div className="stats-grid">
+              <Stat title="Attendance" value={faculty.avgAttendance} />
+              <Stat title="Correction" value={faculty.avgCorrection} />
+              <Stat title="Teaching" value={faculty.avgTeaching} />
+              <Stat
+                title="Approachability"
+                value={faculty.avgApproachability}
+              />
+              <Stat
+                title="Overall Rating"
+                value={faculty.avgRating}
+                suffix="★"
+              />
+              <Stat
+                title="Total Reviews"
+                value={faculty.reviewCount}
+                isCount
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* REVIEWS LIST */}
+        <div className="mt-12">
+          <h2 className="section-title mb-4">Student Reviews</h2>
+
+          {reviews.length === 0 && (
+            <p className="text-muted">No reviews yet.</p>
+          )}
+
+          {reviews.map((r) => (
+            <div key={r.id} className="review-card">
+              <p className="leading-relaxed mb-2">
+                {r.comment || "No comment provided."}
+              </p>
+
+              <div className="text-sm text-muted">
+                ⭐ Overall: {r.overall?.toFixed(1)} / 5
+              </div>
+
+              <div className="text-xs text-muted mt-1">
+                Attendance: {r.attendance} ★ | Correction: {r.correction} ★ |
+                Teaching: {r.teaching} ★ | Approachability:{" "}
+                {r.approachability} ★
+              </div>
+            </div>
+          ))}
+        </div>
+
       </div>
+    </div>
+  );
+}
 
-      <div className="mt-10 max-w-md">
-        <h2 className="text-xl font-semibold mb-3">Write Review</h2>
-
-        {!user ? (
-          <p className="text-red-500">
-            Login required to write review
-          </p>
-        ) : (
-          <>
-            <select
-              value={rating}
-              onChange={e => setRating(Number(e.target.value))}
-              className="border w-full mb-3 p-2"
-            >
-              {[5, 4, 3, 2, 1].map(n => (
-                <option key={n}>{n}</option>
-              ))}
-            </select>
-
-            <textarea
-              className="border w-full p-2 mb-3"
-              rows={4}
-              value={text}
-              onChange={e => setText(e.target.value)}
-            />
-
-            <button
-              onClick={async () => {
-                await addDoc(collection(db, "reviews"), {
-                  facultyId: Number(id),
-                  user: user.email,
-                  rating,
-                  text,
-                  createdAt: serverTimestamp(),
-                });
-                location.reload();
-              }}
-              className="bg-black text-white px-6 py-2 rounded"
-            >
-              Submit
-            </button>
-          </>
-        )}
+/* ================= STAT CARD ================= */
+function Stat({ title, value, suffix = "", isCount = false }) {
+  return (
+    <div className="card stat-card">
+      <div className="stat-value">
+        {value
+          ? isCount
+            ? value
+            : value.toFixed(1)
+          : "—"}
+        {suffix}
+      </div>
+      <div className="text-sm text-muted mt-1">
+        {title}
       </div>
     </div>
   );
