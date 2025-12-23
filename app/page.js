@@ -41,7 +41,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
 
-      {/* HEADER */}
+      {/* ================= HEADER ================= */}
       <header className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">VITor</h1>
@@ -49,7 +49,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* MAIN */}
+      {/* ================= MAIN ================= */}
       <main className="flex-1 max-w-7xl mx-auto px-6 py-6">
 
         {/* TITLE + DESCRIPTION */}
@@ -64,23 +64,39 @@ export default function HomePage() {
             <li>🙏 Please take a moment to share your experience</li>
           </ul>
 
-          {/* DESCRIPTIVE BOXES */}
+          {/* STUDENT-FRIENDLY EVALUATION CRITERIA */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <InfoCard
               title="📅 Attendance"
-              items={["Regularity", "Time discipline", "Class consistency"]}
+              items={[
+                "Easy and flexible attendance policies",
+                "Understands genuine student issues",
+                "Focuses on learning over strict rules",
+              ]}
             />
             <InfoCard
               title="📝 Correction"
-              items={["Fair checking", "Timely evaluation", "Marks justification"]}
+              items={[
+                "Fair and unbiased evaluation",
+                "Timely correction of answer sheets",
+                "Clear justification for marks",
+              ]}
             />
             <InfoCard
               title="🎓 Teaching"
-              items={["Concept clarity", "Explanation quality", "Pace"]}
+              items={[
+                "Explains concepts clearly and simply",
+                "Maintains a comfortable teaching pace",
+                "Focuses on understanding, not memorization",
+              ]}
             />
             <InfoCard
               title="🤝 Approachability"
-              items={["Doubt support", "Student friendly", "Extra guidance"]}
+              items={[
+                "Easily approachable for doubts",
+                "Friendly and respectful towards students",
+                "Willing to help beyond class hours",
+              ]}
             />
           </div>
         </div>
@@ -88,28 +104,31 @@ export default function HomePage() {
         {/* SEARCH */}
         <div className="mb-6">
           <div className="relative">
-            {/* Search Icon */}
             <span className="absolute inset-y-0 left-4 flex items-center text-gray-400">
               🔍
             </span>
-
             <input
               type="text"
               placeholder="Search by faculty name or department..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full rounded-xl border pl-11 pr-4 py-3 text-sm shadow-sm
-                        focus:outline-none focus:ring-2 focus:ring-slate-200"
+                         focus:outline-none focus:ring-2 focus:ring-slate-200"
             />
           </div>
         </div>
-
 
         {/* GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {currentFaculties.map((f) => (
             <FacultyCard key={f.id} faculty={f} />
           ))}
+
+          {currentFaculties.length === 0 && (
+            <div className="col-span-full text-center text-gray-500 py-12">
+              No faculty found matching your search.
+            </div>
+          )}
         </div>
 
         {/* PAGINATION */}
@@ -146,51 +165,44 @@ export default function HomePage() {
             </button>
           </div>
         )}
-
       </main>
 
-      {/* FOOTER */}
+      {/* ================= FOOTER ================= */}
       <footer className="mt-12 border-t bg-slate-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-sm text-gray-500">
-          
-          {/* LEFT TEXT */}
           <p>© 2025 VITor · Built by students, for students</p>
 
-          {/* RIGHT ICONS */}
           <div className="flex items-center gap-4">
             <a
               href="https://github.com/anantgupta001/vitor"
               target="_blank"
+              rel="noopener noreferrer"
               className="hover:text-gray-700"
             >
-              <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 .5C5.73.5.5 5.74.5 12.02c0 5.1 3.29 9.42 7.86 10.95.57.1.78-.25.78-.55v-2.02c-3.2.7-3.87-1.38-3.87-1.38-.53-1.35-1.3-1.71-1.3-1.71-1.06-.73.08-.72.08-.72 1.17.08 1.79 1.21 1.79 1.21 1.04 1.78 2.73 1.27 3.4.97.1-.75.4-1.27.73-1.56-2.55-.29-5.23-1.28-5.23-5.7 0-1.26.45-2.29 1.19-3.1-.12-.3-.52-1.52.11-3.17 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.65.23 2.87.11 3.17.74.81 1.18 1.84 1.18 3.1 0 4.43-2.69 5.4-5.25 5.68.41.35.78 1.04.78 2.1v3.12c0 .3.2.65.79.54 4.56-1.53 7.85-5.85 7.85-10.94C23.5 5.74 18.27.5 12 .5z" />
-              </svg>
+              GitHub
             </a>
 
             <a
               href="https://www.linkedin.com/in/anantgupta7628/"
               target="_blank"
+              rel="noopener noreferrer"
               className="hover:text-gray-700"
             >
-              <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.64h.05c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.78 2.65 4.78 6.1V21h-4v-5.44c0-1.3-.03-2.97-1.81-2.97-1.82 0-2.1 1.42-2.1 2.88V21H9z" />
-              </svg>
+              LinkedIn
             </a>
           </div>
         </div>
       </footer>
-
     </div>
   );
 }
 
-/* ===== SMALL COMPONENT ===== */
+/* ================= SMALL COMPONENT ================= */
 function InfoCard({ title, items }) {
   return (
     <div className="bg-white rounded-xl border shadow-sm p-4">
-      <p className="font-semibold mb-1">{title}</p>
-      <ul className="text-sm text-gray-600 space-y-0.5">
+      <p className="font-semibold mb-2">{title}</p>
+      <ul className="text-sm text-gray-600 space-y-1">
         {items.map((i) => (
           <li key={i}>• {i}</li>
         ))}

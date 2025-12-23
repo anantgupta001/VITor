@@ -9,7 +9,7 @@ import ReviewForm from "@/components/ReviewForm";
 
 export default function FacultyDetailPage() {
   const { id } = useParams();
-  const { user } = useAuth(); // ✅ FIX: user defined
+  const { user } = useAuth(); 
   const [faculty, setFaculty] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
