@@ -3,18 +3,25 @@
 import { useState } from "react";
 import {
   doc,
+  setDoc,
+  collection,
+  getDocs,
+  updateDoc,
   serverTimestamp,
-  runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/context/AuthContext";
 
-const fields = [
+/* ================= CONFIG ================= */
+
+const metrics = [
   { key: "attendance", label: "Attendance" },
   { key: "correction", label: "Correction" },
   { key: "teaching", label: "Teaching" },
   { key: "approachability", label: "Approachability" },
 ];
+
+/* ================= COMPONENT ================= */
 
 export default function ReviewForm({ facultyId }) {
   const { user } = useAuth();
@@ -25,208 +32,200 @@ export default function ReviewForm({ facultyId }) {
     teaching: 0,
     approachability: 0,
   });
+
   const [comment, setComment] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [hover, setHover] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleRatingChange = (key, value) => {
-    setRatings((prev) => ({ ...prev, [key]: value }));
-    setError("");
-  };
-
-  /* ===== VALIDATION FLAGS ===== */
   const allRated = Object.values(ratings).every((v) => v > 0);
-  const trimmedComment = comment.trim();
-  const commentValid = trimmedComment.length >= 10;
+  const validComment = comment.trim().length >= 10;
 
-  const submit = async () => {
-    /* 🔒 HARD STOPS */
-    if (!user) {
-      setError("Login required to submit review");
-      return;
-    }
+  async function submitReview() {
+    if (!user || !allRated || !validComment || submitting) return;
 
-    if (!allRated) {
-      setError("Please rate all sections");
-      return;
-    }
-
-    if (!commentValid) {
-      setError("Please write at least 10 characters in review");
-      return;
-    }
+    setSubmitting(true);
+    setError(null);
 
     try {
-      setLoading(true);
+      const overall =
+        (ratings.attendance +
+          ratings.correction +
+          ratings.teaching +
+          ratings.approachability) /
+        4;
 
-      const facultyDocId = String(facultyId);
-      const facultyRef = doc(db, "faculties", facultyDocId);
-      const reviewRef = doc(
-        db,
-        "faculties",
-        facultyDocId,
-        "reviews",
-        user.uid
+      // 1️⃣ Save / overwrite user review
+      await setDoc(
+        doc(db, "faculties", facultyId, "reviews", user.uid),
+        {
+          user: "Anonymous User",
+          userId: user.uid,
+          attendance: ratings.attendance,
+          correction: ratings.correction,
+          teaching: ratings.teaching,
+          approachability: ratings.approachability,
+          overall,
+          text: comment,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
       );
 
-      await runTransaction(db, async (tx) => {
-        const facultySnap = await tx.get(facultyRef);
-        const reviewSnap = await tx.get(reviewRef);
+      // 2️⃣ Recalculate faculty stats
+      await updateFacultyStats(facultyId);
 
-        const facultyData = facultySnap.exists()
-          ? facultySnap.data()
-          : {};
-
-        const oldCount = facultyData.reviewCount || 0;
-        const oldReview = reviewSnap.exists()
-          ? reviewSnap.data()
-          : null;
-
-        const isNewReview = !oldReview;
-        const newCount = isNewReview ? oldCount + 1 : oldCount;
-
-        const overall =
-          (ratings.attendance +
-            ratings.correction +
-            ratings.teaching +
-            ratings.approachability) /
-          4;
-
-        /* helper to recalc averages */
-        const recalcAvg = (oldAvg = 0, oldVal = 0, newVal) => {
-          if (isNewReview) {
-            return (oldAvg * oldCount + newVal) / newCount;
-          }
-          // update existing review
-          return (oldAvg * oldCount - oldVal + newVal) / oldCount;
-        };
-
-        /* WRITE / UPDATE REVIEW */
-        tx.set(reviewRef, {
-          ...ratings,
-          overall,
-          comment: trimmedComment,
-          userId: user.uid,
-          createdAt: serverTimestamp(),
-        });
-
-        /* UPDATE FACULTY AGGREGATES */
-        tx.set(
-          facultyRef,
-          {
-            reviewCount: newCount,
-
-            avgAttendance: recalcAvg(
-              facultyData.avgAttendance,
-              oldReview?.attendance,
-              ratings.attendance
-            ),
-
-            avgCorrection: recalcAvg(
-              facultyData.avgCorrection,
-              oldReview?.correction,
-              ratings.correction
-            ),
-
-            avgTeaching: recalcAvg(
-              facultyData.avgTeaching,
-              oldReview?.teaching,
-              ratings.teaching
-            ),
-
-            avgApproachability: recalcAvg(
-              facultyData.avgApproachability,
-              oldReview?.approachability,
-              ratings.approachability
-            ),
-
-            avgRating: recalcAvg(
-              facultyData.avgRating,
-              oldReview?.overall,
-              overall
-            ),
-          },
-          { merge: true }
-        );
-      });
-
-      /* RESET FORM */
+      // 3️⃣ CLEAR STATE *AFTER SUCCESS*
+      setComment("");
       setRatings({
         attendance: 0,
         correction: 0,
         teaching: 0,
         approachability: 0,
       });
-      setComment("");
-      setError("");
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
       setError("Failed to submit review. Try again.");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
-  };
+  }
 
   return (
     <div className="space-y-4">
 
-      {fields.map((f) => (
-        <div key={f.key}>
-          <label className="text-sm font-medium block mb-1">
-            {f.label} <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={ratings[f.key]}
-            onChange={(e) =>
-              handleRatingChange(f.key, Number(e.target.value))
+      {/* COMMENT */}
+      <textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="Write your honest experience (minimum 10 characters)"
+        rows={4}
+        className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
+      />
+
+      {/* STAR INPUTS */}
+      {metrics.map((m) => (
+        <div
+          key={m.key}
+          className="flex items-center justify-between"
+        >
+          <span className="text-sm font-medium">
+            {m.label} *
+          </span>
+
+          <StarRow
+            value={ratings[m.key]}
+            hoverValue={hover[m.key]}
+            onHover={(v) =>
+              setHover((h) => ({ ...h, [m.key]: v }))
             }
-            className="w-full border rounded-lg px-3 py-2 text-sm"
-          >
-            <option value={0}>Select</option>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <option key={n} value={n}>
-                {n} ★
-              </option>
-            ))}
-          </select>
+            onLeave={() =>
+              setHover((h) => ({ ...h, [m.key]: 0 }))
+            }
+            onSelect={(v) =>
+              setRatings((r) => ({ ...r, [m.key]: v }))
+            }
+          />
         </div>
       ))}
 
-      {/* COMMENT (COMPULSORY) */}
-      <div>
-        <label className="text-sm font-medium block mb-1">
-          Review <span className="text-red-500">*</span>
-        </label>
-        <textarea
-          value={comment}
-          onChange={(e) => {
-            setComment(e.target.value);
-            setError("");
-          }}
-          placeholder="Write your honest experience (min 10 characters)"
-          rows={4}
-          className="w-full border rounded-lg p-2 text-sm resize-none"
-        />
-      </div>
-
       {/* ERROR */}
       {error && (
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-sm text-red-500">{error}</p>
       )}
 
       {/* SUBMIT */}
       <button
-        onClick={submit}
-        disabled={!allRated || !commentValid || loading}
-        className={`w-full py-2 rounded-lg text-sm font-medium
+        onClick={submitReview}
+        disabled={!allRated || !validComment || submitting}
+        className={`
+          w-full
+          py-2.5
+          rounded-lg
+          text-sm
+          font-medium
+          transition
           ${
-            !allRated || !commentValid || loading
-              ? "bg-gray-300 cursor-not-allowed"
+            !allRated || !validComment || submitting
+              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
               : "bg-black text-white hover:bg-gray-900"
-          }`}
+          }
+        `}
       >
-        {loading ? "Submitting..." : "Submit Review"}
+        {submitting ? "Submitting..." : "Submit Review"}
       </button>
+    </div>
+  );
+}
+
+/* ================= HELPERS ================= */
+
+async function updateFacultyStats(facultyId) {
+  const snap = await getDocs(
+    collection(db, "faculties", facultyId, "reviews")
+  );
+
+  const total = snap.size;
+  if (total === 0) return;
+
+  let sum = {
+    attendance: 0,
+    correction: 0,
+    teaching: 0,
+    approachability: 0,
+    overall: 0,
+  };
+
+  snap.forEach((d) => {
+    const r = d.data();
+    sum.attendance += r.attendance;
+    sum.correction += r.correction;
+    sum.teaching += r.teaching;
+    sum.approachability += r.approachability;
+    sum.overall += r.overall;
+  });
+
+  await updateDoc(doc(db, "faculties", facultyId), {
+    avgAttendance: +(sum.attendance / total).toFixed(2),
+    avgCorrection: +(sum.correction / total).toFixed(2),
+    avgTeaching: +(sum.teaching / total).toFixed(2),
+    avgApproachability: +(sum.approachability / total).toFixed(2),
+    avgRating: +(sum.overall / total).toFixed(2),
+    reviewCount: total,
+  });
+}
+
+/* ================= STAR UI ================= */
+
+function StarRow({
+  value,
+  hoverValue,
+  onHover,
+  onLeave,
+  onSelect,
+}) {
+  return (
+    <div className="flex gap-1">
+      {Array.from({ length: 5 }).map((_, i) => {
+        const starValue = i + 1;
+        const active = hoverValue
+          ? starValue <= hoverValue
+          : starValue <= value;
+
+        return (
+          <span
+            key={i}
+            className={`text-xl cursor-pointer transition ${
+              active ? "text-yellow-400" : "text-gray-300"
+            }`}
+            onMouseEnter={() => onHover(starValue)}
+            onMouseLeave={onLeave}
+            onClick={() => onSelect(starValue)}
+          >
+            ★
+          </span>
+        );
+      })}
     </div>
   );
 }

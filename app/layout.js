@@ -3,14 +3,16 @@ import { AuthProvider } from "@/app/context/AuthContext";
 
 export const metadata = {
   title: "VITor",
-  description: "VIT-AP Faculty Rating Platform",
+  description: "Faculty Rating Platform",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-white text-black">
-        <AuthProvider>{children}</AuthProvider>
+      <body className="bg-slate-100 text-gray-900">
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
