@@ -1,5 +1,5 @@
 import "./globals.css";
-import { AuthProvider } from "@/app/context/AuthContext";
+import Providers from "@/app/providers";
 
 export const metadata = {
   title: "VITor",
@@ -9,10 +9,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-slate-100 text-gray-900">
-        <AuthProvider>
+      <body>
+        <Providers>
           {children}
-        </AuthProvider>
+        </Providers>
       </body>
     </html>
   );

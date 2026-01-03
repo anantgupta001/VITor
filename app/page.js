@@ -5,6 +5,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import FacultyCard from "@/components/FacultyCard";
 import LoginButton from "@/components/LoginButton";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -21,9 +22,7 @@ export default function HomePage() {
   }, []);
 
   const filtered = faculties.filter((f) =>
-    `${f.name} ${f.department}`
-      .toLowerCase()
-      .includes(query.toLowerCase())
+    `${f.name} ${f.department}`.toLowerCase().includes(query.toLowerCase())
   );
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
@@ -33,19 +32,23 @@ export default function HomePage() {
     startIndex + ITEMS_PER_PAGE
   );
 
-  // reset page on search
   useEffect(() => {
     setCurrentPage(1);
   }, [query]);
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
+    <div className="min-h-screen flex flex-col bg-slate-100 dark:bg-gray-900">
 
       {/* ================= HEADER ================= */}
-      <header className="bg-white border-b">
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">VITor</h1>
-          <LoginButton />
+
+          {/* 🔥 TOGGLE + LOGIN */}
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <LoginButton />
+          </div>
         </div>
       </header>
 
@@ -56,7 +59,7 @@ export default function HomePage() {
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-3">All Faculty</h2>
 
-          <ul className="text-gray-600 text-sm space-y-2 max-w-4xl mb-6">
+          <ul className="text-gray-600 dark:text-gray-300 text-sm space-y-2 max-w-4xl mb-6">
             <li>🎓 Exclusive faculty rating platform for <b>VIT-AP University students</b></li>
             <li>⭐ Rate faculty and explore reviews from fellow students</li>
             <li>🔒 <b>All reviews are anonymous</b> — your identity remains hidden</li>
@@ -64,7 +67,7 @@ export default function HomePage() {
             <li>🙏 Please take a moment to share your experience</li>
           </ul>
 
-          {/* STUDENT-FRIENDLY EVALUATION CRITERIA */}
+          {/* INFO CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <InfoCard
               title="📅 Attendance"
@@ -112,8 +115,14 @@ export default function HomePage() {
               placeholder="Search by faculty name or department..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full rounded-xl border pl-11 pr-4 py-3 text-sm shadow-sm
-                         focus:outline-none focus:ring-2 focus:ring-slate-200"
+              className="
+                w-full rounded-xl border pl-11 pr-4 py-3 text-sm shadow-sm
+                bg-white dark:bg-gray-800
+                border-gray-300 dark:border-gray-600
+                text-gray-900 dark:text-gray-100
+                focus:outline-none focus:ring-2
+                focus:ring-slate-200 dark:focus:ring-gray-700
+              "
             />
           </div>
         </div>
@@ -125,7 +134,7 @@ export default function HomePage() {
           ))}
 
           {currentFaculties.length === 0 && (
-            <div className="col-span-full text-center text-gray-500 py-12">
+            <div className="col-span-full text-center text-gray-500 dark:text-gray-400 py-12">
               No faculty found matching your search.
             </div>
           )}
@@ -139,14 +148,14 @@ export default function HomePage() {
               disabled={currentPage === 1}
               className={`px-4 py-2 rounded-lg border text-sm ${
                 currentPage === 1
-                  ? "text-gray-400 border-gray-200 cursor-not-allowed"
-                  : "hover:bg-gray-100"
+                  ? "text-gray-400 border-gray-300 dark:border-gray-700 cursor-not-allowed"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}
             >
               ← Prev
             </button>
 
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 dark:text-gray-300">
               Page <b>{currentPage}</b> of <b>{totalPages}</b>
             </span>
 
@@ -157,8 +166,8 @@ export default function HomePage() {
               disabled={currentPage === totalPages}
               className={`px-4 py-2 rounded-lg border text-sm ${
                 currentPage === totalPages
-                  ? "text-gray-400 border-gray-200 cursor-not-allowed"
-                  : "hover:bg-gray-100"
+                  ? "text-gray-400 border-gray-300 dark:border-gray-700 cursor-not-allowed"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}
             >
               Next →
@@ -168,8 +177,8 @@ export default function HomePage() {
       </main>
 
       {/* ================= FOOTER ================= */}
-      <footer className="mt-12 border-t bg-slate-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-sm text-gray-500">
+      <footer className="mt-12 border-t bg-slate-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
           <p>© 2025 VITor · Built by students, for students</p>
 
           <div className="flex items-center gap-4">
@@ -177,7 +186,7 @@ export default function HomePage() {
               href="https://github.com/anantgupta001/vitor"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-gray-700"
+              className="hover:text-gray-700 dark:hover:text-gray-300"
             >
               GitHub
             </a>
@@ -186,7 +195,7 @@ export default function HomePage() {
               href="https://www.linkedin.com/in/anantgupta7628/"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-gray-700"
+              className="hover:text-gray-700 dark:hover:text-gray-300"
             >
               LinkedIn
             </a>
@@ -200,9 +209,9 @@ export default function HomePage() {
 /* ================= SMALL COMPONENT ================= */
 function InfoCard({ title, items }) {
   return (
-    <div className="bg-white rounded-xl border shadow-sm p-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4">
       <p className="font-semibold mb-2">{title}</p>
-      <ul className="text-sm text-gray-600 space-y-1">
+      <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
         {items.map((i) => (
           <li key={i}>• {i}</li>
         ))}

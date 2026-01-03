@@ -2,8 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Reset */
 html,
 body {
   margin: 0;
   padding: 0;
+}
+
+/* Smooth dark ↔ light transition */
+* {
+  transition: background-color 0.2s ease,
+              color 0.2s ease,
+              border-color 0.2s ease;
+}
+
+/* Optional: better default background handling */
+body {
+  @apply bg-slate-100 dark:bg-gray-900
+         text-gray-900 dark:text-gray-100;
 }

@@ -9,7 +9,7 @@ import ReviewForm from "@/components/ReviewForm";
 
 export default function FacultyDetailPage() {
   const { id } = useParams();
-  const { user } = useAuth(); 
+  const { user } = useAuth();
   const [faculty, setFaculty] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,34 +42,46 @@ export default function FacultyDetailPage() {
     load();
   }, [id]);
 
-  if (loading) return <div className="p-10">Loading...</div>;
+  if (loading)
+    return (
+      <div className="p-10 text-gray-700 dark:text-gray-300">
+        Loading...
+      </div>
+    );
+
   if (!faculty)
-    return <div className="p-10 text-red-500">Faculty not found</div>;
+    return (
+      <div className="p-10 text-red-500 dark:text-red-400">
+        Faculty not found
+      </div>
+    );
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-slate-100 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
         {/* ========== LEFT COLUMN ========== */}
         <div className="space-y-6">
 
           {/* PHOTO CARD */}
-          <div className="bg-white rounded-2xl shadow p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4">
             <img
               src={faculty.photo}
               alt={faculty.name}
               className="w-full h-80 object-cover rounded-xl"
             />
-            <p className="mt-4 text-center font-semibold text-lg">
+            <p className="mt-4 text-center font-semibold text-lg text-gray-900 dark:text-gray-100">
               {faculty.name}
             </p>
           </div>
 
           {/* WARNING IF NOT LOGGED IN */}
           {!user && (
-            <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
-              <span className="text-amber-600 text-lg">⚠️</span>
-              <p className="text-sm text-amber-800 leading-snug">
+            <div className="rounded-xl border border-amber-300 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 flex items-start gap-3">
+              <span className="text-amber-600 dark:text-amber-400 text-lg">
+                ⚠️
+              </span>
+              <p className="text-sm text-amber-800 dark:text-amber-300 leading-snug">
                 Please sign in using your official college ID to submit a review.
                 This helps us prevent spam and maintain authenticity.
               </p>
@@ -77,12 +89,14 @@ export default function FacultyDetailPage() {
           )}
 
           {/* WRITE REVIEW */}
-          <div className="bg-white rounded-2xl shadow p-5">
-            <h3 className="font-semibold mb-3">Write a Review</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
+            <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">
+              Write a Review
+            </h3>
             {user ? (
               <ReviewForm facultyId={id} />
             ) : (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Sign in to submit a review.
               </p>
             )}
@@ -94,9 +108,13 @@ export default function FacultyDetailPage() {
 
           {/* BASIC INFO */}
           <div>
-            <h1 className="text-2xl font-bold">{faculty.name}</h1>
-            <p className="text-gray-700">{faculty.designation}</p>
-            <p className="text-gray-600 text-sm">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {faculty.name}
+            </h1>
+            <p className="text-gray-700 dark:text-gray-300">
+              {faculty.designation}
+            </p>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
               {faculty.department}
             </p>
           </div>
@@ -104,8 +122,10 @@ export default function FacultyDetailPage() {
           {/* SPECIALIZATION */}
           {faculty.researchArea && (
             <div>
-              <h3 className="font-semibold mb-1">Specialization</h3>
-              <p className="text-gray-700">
+              <h3 className="font-semibold mb-1 text-gray-900 dark:text-gray-100">
+                Specialization
+              </h3>
+              <p className="text-gray-700 dark:text-gray-300">
                 {faculty.researchArea}
               </p>
             </div>
@@ -123,12 +143,12 @@ export default function FacultyDetailPage() {
 
           {/* REVIEWS */}
           <div>
-            <h3 className="font-semibold text-lg mb-4">
+            <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
               Student Reviews
             </h3>
 
             {reviews.length === 0 && (
-              <p className="text-gray-500 text-sm">
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
                 No reviews yet.
               </p>
             )}
@@ -137,23 +157,23 @@ export default function FacultyDetailPage() {
               {reviews.map((r, i) => (
                 <div
                   key={i}
-                  className="bg-white rounded-xl shadow p-4"
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow p-4"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <p className="font-semibold">
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">
                       Anonymous
                     </p>
                     <Stars rating={r.overall} />
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
                       {r.overall}
                     </span>
                   </div>
 
-                  <p className="text-gray-800 mb-2">
+                  <p className="text-gray-800 dark:text-gray-200 mb-2">
                     {r.text}
                   </p>
 
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
                     Attendance {r.attendance} ★ ·
                     Correction {r.correction} ★ ·
                     Teaching {r.teaching} ★ ·
@@ -174,8 +194,8 @@ export default function FacultyDetailPage() {
 
 function Stat({ title, value, isCount }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 text-center">
-      <div className="text-2xl font-bold">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+      <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
         {value !== undefined && value !== null
           ? isCount
             ? formatCount(value)
@@ -185,7 +205,7 @@ function Stat({ title, value, isCount }) {
           <span className="text-sm"> /5</span>
         )}
       </div>
-      <div className="text-sm text-gray-600 mt-1">
+      <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
         {title}
       </div>
     </div>
