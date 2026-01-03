@@ -3,8 +3,6 @@
 **VITor** is a **student-driven faculty rating platform** built exclusively for **VIT-AP University students**.  
 It enables students to **anonymously rate and review faculty members** across multiple academic and support-related parameters, helping peers make informed academic decisions.
 
-> Built **by students, for students** 🤝
-
 ---
 
 ## 📑 Table of Contents
@@ -90,16 +88,20 @@ Each faculty is evaluated from a **student’s perspective**, focusing on fairne
 
 ~~~text
 app/
- ├─ page.js                # Home page
+ ├─ page.js                # Home (Server wrapper)
+ ├─ HomeClient.jsx         # Home UI & logic
  ├─ faculty/[id]/page.js   # Faculty detail page
- ├─ api/                   # API routes
- ├─ providers.js           # Client-side providers (theme, auth)
+ ├─ layout.js              # Global layout
+ ├─ providers.js           # Theme & Auth providers
 
 components/
- ├─ FacultyCard.js
- ├─ ReviewForm.js
- ├─ LoginButton.js
- ├─ ThemeToggle.js
+ ├─ Navbar.jsx
+ ├─ Footer.jsx
+ ├─ FacultyCard.jsx
+ ├─ ReviewForm.jsx
+ ├─ InfoCard.jsx
+ ├─ LoginButton.jsx
+ ├─ ThemeToggle.jsx
 
 lib/
  ├─ firebase.js
