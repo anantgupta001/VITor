@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import FacultyCard from "@/components/FacultyCard";
-import LoginButton from "@/components/LoginButton";
-import ThemeToggle from "@/components/ThemeToggle";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -37,40 +35,34 @@ export default function HomePage() {
   }, [query]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 dark:bg-gray-900">
+    <div className="min-h-screen bg-slate-100 dark:bg-gray-900">
 
-      {/* ================= HEADER ================= */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">VITor</h1>
-
-          {/* 🔥 TOGGLE + LOGIN */}
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <LoginButton />
-          </div>
-        </div>
-      </header>
-
-      {/* ================= MAIN ================= */}
-      <main className="flex-1 max-w-7xl mx-auto px-6 py-6">
+      {/* ================= MAIN CONTENT ================= */}
+      <main className="max-w-7xl mx-auto px-6 py-8">
 
         {/* TITLE + DESCRIPTION */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-3">All Faculty</h2>
 
           <ul className="text-gray-600 dark:text-gray-300 text-sm space-y-2 max-w-4xl mb-6">
-            <li>🎓 Exclusive faculty rating platform for <b>VIT-AP University students</b></li>
+            <li>
+              🎓 Exclusive faculty rating platform for{" "}
+              <b>VIT-AP University students</b>
+            </li>
             <li>⭐ Rate faculty and explore reviews from fellow students</li>
-            <li>🔒 <b>All reviews are anonymous</b> — your identity remains hidden</li>
-            <li>🤝 Your feedback helps others make informed academic decisions</li>
+            <li>
+              🔒 <b>All reviews are anonymous</b> — your identity remains hidden
+            </li>
+            <li>
+              🤝 Your feedback helps others make informed academic decisions
+            </li>
             <li>🙏 Please take a moment to share your experience</li>
           </ul>
 
           {/* INFO CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <InfoCard
-              title="📅 Attendance"
+              title="Attendance"
               items={[
                 "Easy and flexible attendance policies",
                 "Understands genuine student issues",
@@ -78,7 +70,7 @@ export default function HomePage() {
               ]}
             />
             <InfoCard
-              title="📝 Correction"
+              title="Correction"
               items={[
                 "Fair and unbiased evaluation",
                 "Timely correction of answer sheets",
@@ -86,7 +78,7 @@ export default function HomePage() {
               ]}
             />
             <InfoCard
-              title="🎓 Teaching"
+              title="Teaching"
               items={[
                 "Explains concepts clearly and simply",
                 "Maintains a comfortable teaching pace",
@@ -94,7 +86,7 @@ export default function HomePage() {
               ]}
             />
             <InfoCard
-              title="🤝 Approachability"
+              title="Approachability"
               items={[
                 "Easily approachable for doubts",
                 "Friendly and respectful towards students",
@@ -127,7 +119,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* GRID */}
+        {/* FACULTY GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {currentFaculties.map((f) => (
             <FacultyCard key={f.id} faculty={f} />
@@ -175,38 +167,12 @@ export default function HomePage() {
           </div>
         )}
       </main>
-
-      {/* ================= FOOTER ================= */}
-      <footer className="mt-12 border-t bg-slate-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-          <p>© 2025 VITor · Built by students, for students</p>
-
-          <div className="flex items-center gap-4">
-            <a
-              href="https://github.com/anantgupta001/vitor"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-gray-700 dark:hover:text-gray-300"
-            >
-              GitHub
-            </a>
-
-            <a
-              href="https://www.linkedin.com/in/anantgupta7628/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-gray-700 dark:hover:text-gray-300"
-            >
-              LinkedIn
-            </a>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
 
 /* ================= SMALL COMPONENT ================= */
+
 function InfoCard({ title, items }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4">

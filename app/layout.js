@@ -1,5 +1,6 @@
 import "./globals.css";
 import Providers from "@/app/providers";
+import Navbar from "@/components/Navbar";
 
 export const metadata = {
   title: "VITor",
@@ -11,6 +12,7 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <body>
         <Providers>
+          <Navbar />
           {children}
         </Providers>
       </body>
