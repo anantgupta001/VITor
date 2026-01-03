@@ -27,9 +27,20 @@ function StatRow({ icon, label, value }) {
 
 /* ================= CARD ================= */
 
-export default function FacultyCard({ faculty }) {
+export default function FacultyCard({ faculty, currentPage, query }) {
+  // 🔒 build URL params safely
+  const params = new URLSearchParams();
+  params.set("page", currentPage);
+
+  if (query && query.trim().length > 0) {
+    params.set("q", query.trim());
+  }
+
   return (
-    <Link href={`/faculty/${faculty.id}`} className="block h-full">
+    <Link
+      href={`/faculty/${faculty.id}?${params.toString()}`}
+      className="block h-full"
+    >
       <div
         className="
           h-full rounded-2xl border shadow-sm
@@ -50,6 +61,7 @@ export default function FacultyCard({ faculty }) {
 
         {/* CONTENT */}
         <div className="p-4 flex flex-col flex-1">
+
           {/* NAME */}
           <h2 className="text-lg font-semibold leading-snug text-gray-900 dark:text-gray-100">
             {faculty.name}
@@ -79,6 +91,7 @@ export default function FacultyCard({ faculty }) {
 
           {/* FOOTER */}
           <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-sm">
+
             {/* OVERALL */}
             <div className="flex items-center gap-1 font-semibold text-gray-900 dark:text-gray-100">
               ⭐
@@ -95,6 +108,7 @@ export default function FacultyCard({ faculty }) {
               👥
               {formatNumber(faculty.reviewCount || 0)}
             </div>
+
           </div>
         </div>
       </div>
