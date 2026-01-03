@@ -12,13 +12,22 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/context/AuthContext";
 
+import {
+  CalendarCheck,
+  PenLine,
+  BookOpen,
+  Handshake,
+  MessageSquare,
+  Star,
+} from "lucide-react";
+
 /* ================= CONFIG ================= */
 
 const metrics = [
-  { key: "attendance", label: "Attendance" },
-  { key: "correction", label: "Correction" },
-  { key: "teaching", label: "Teaching" },
-  { key: "approachability", label: "Approachability" },
+  { key: "attendance", label: "Attendance", icon: CalendarCheck },
+  { key: "correction", label: "Correction", icon: PenLine },
+  { key: "teaching", label: "Teaching", icon: BookOpen },
+  { key: "approachability", label: "Approachability", icon: Handshake },
 ];
 
 /* ================= COMPONENT ================= */
@@ -55,16 +64,12 @@ export default function ReviewForm({ facultyId }) {
           ratings.approachability) /
         4;
 
-      // 1️⃣ Save / overwrite user review
       await setDoc(
         doc(db, "faculties", facultyId, "reviews", user.uid),
         {
           user: "Anonymous User",
           userId: user.uid,
-          attendance: ratings.attendance,
-          correction: ratings.correction,
-          teaching: ratings.teaching,
-          approachability: ratings.approachability,
+          ...ratings,
           overall,
           text: comment,
           updatedAt: serverTimestamp(),
@@ -72,10 +77,8 @@ export default function ReviewForm({ facultyId }) {
         { merge: true }
       );
 
-      // 2️⃣ Recalculate faculty stats
       await updateFacultyStats(facultyId);
 
-      // 3️⃣ CLEAR STATE
       setComment("");
       setRatings({
         attendance: 0,
@@ -92,49 +95,71 @@ export default function ReviewForm({ facultyId }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
 
       {/* COMMENT */}
-      <textarea
-        value={comment}
-        onChange={(e) => setComment(e.target.value)}
-        placeholder="Write your honest experience (minimum 10 characters)"
-        rows={4}
-        className="
-          w-full rounded-lg p-3 text-sm border
-          bg-white dark:bg-gray-800
-          border-gray-300 dark:border-gray-600
-          text-gray-900 dark:text-gray-100
-          focus:outline-none focus:ring-2
-          focus:ring-slate-200 dark:focus:ring-gray-700
-        "
-      />
-
-      {/* STAR INPUTS */}
-      {metrics.map((m) => (
-        <div
-          key={m.key}
-          className="flex items-center justify-between"
-        >
-          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-            {m.label} *
-          </span>
-
-          <StarRow
-            value={ratings[m.key]}
-            hoverValue={hover[m.key]}
-            onHover={(v) =>
-              setHover((h) => ({ ...h, [m.key]: v }))
-            }
-            onLeave={() =>
-              setHover((h) => ({ ...h, [m.key]: 0 }))
-            }
-            onSelect={(v) =>
-              setRatings((r) => ({ ...r, [m.key]: v }))
-            }
-          />
+      <div>
+        <div className="flex items-center gap-2 mb-2 text-gray-700 dark:text-gray-300">
+          <MessageSquare className="w-4 h-4" />
+          <span className="text-sm font-medium">Your Experience</span>
         </div>
-      ))}
+
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Share your honest experience (minimum 10 characters)"
+          rows={4}
+          className="
+            w-full
+            resize-none
+            overflow-y-auto
+            hide-scrollbar
+
+            rounded-xl px-4 py-3 text-sm
+            bg-white dark:bg-gray-800
+            text-gray-900 dark:text-gray-100
+            placeholder:text-gray-400 dark:placeholder:text-gray-500
+
+            border border-gray-200 dark:border-gray-700
+            focus:border-gray-400 dark:focus:border-gray-500
+            focus:ring-0
+
+            transition
+          "
+        />
+      </div>
+
+      {/* METRICS */}
+      <div className="space-y-4">
+        {metrics.map((m) => {
+          const Icon = m.icon;
+          return (
+            <div
+              key={m.key}
+              className="flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-800 dark:text-gray-200">
+                <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                {m.label}
+              </div>
+
+              <StarRow
+                value={ratings[m.key]}
+                hoverValue={hover[m.key]}
+                onHover={(v) =>
+                  setHover((h) => ({ ...h, [m.key]: v }))
+                }
+                onLeave={() =>
+                  setHover((h) => ({ ...h, [m.key]: 0 }))
+                }
+                onSelect={(v) =>
+                  setRatings((r) => ({ ...r, [m.key]: v }))
+                }
+              />
+            </div>
+          );
+        })}
+      </div>
 
       {/* ERROR */}
       {error && (
@@ -201,13 +226,7 @@ async function updateFacultyStats(facultyId) {
 
 /* ================= STAR UI ================= */
 
-function StarRow({
-  value,
-  hoverValue,
-  onHover,
-  onLeave,
-  onSelect,
-}) {
+function StarRow({ value, hoverValue, onHover, onLeave, onSelect }) {
   return (
     <div className="flex gap-1">
       {Array.from({ length: 5 }).map((_, i) => {
@@ -217,22 +236,25 @@ function StarRow({
           : starValue <= value;
 
         return (
-          <span
+          <button
             key={i}
-            className={`
-              text-xl cursor-pointer transition
-              ${
-                active
-                  ? "text-yellow-400"
-                  : "text-gray-300 dark:text-gray-500"
-              }
-            `}
+            type="button"
             onMouseEnter={() => onHover(starValue)}
             onMouseLeave={onLeave}
             onClick={() => onSelect(starValue)}
+            className="p-0.5"
           >
-            ★
-          </span>
+            <Star
+              className={`
+                w-5 h-5 transition
+                ${
+                  active
+                    ? "fill-yellow-400 text-yellow-400"
+                    : "text-gray-300 dark:text-gray-500"
+                }
+              `}
+            />
+          </button>
         );
       })}
     </div>

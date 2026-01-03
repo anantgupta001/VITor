@@ -1,32 +1,37 @@
+import { Github, Linkedin } from "lucide-react";
+
 export default function Footer() {
   return (
-    <footer className="border-t bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-      <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-600 dark:text-gray-400">
-        
-        <p>
-          © {new Date().getFullYear()} VITor · Built by students, for students
-        </p>
+    <footer className="border-t border-gray-200 dark:border-gray-700">
+      <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col items-center gap-4">
 
-        <div className="flex items-center gap-4">
+        {/* ICONS */}
+        <div className="flex items-center gap-5 text-gray-500 dark:text-gray-400">
           <a
-            href="https://github.com/anantgupta001/VITor"
+            href="https://github.com/anantgupta001"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:underline"
+            aria-label="GitHub"
+            className="hover:text-gray-900 dark:hover:text-gray-100 transition"
           >
-            GitHub
+            <Github className="w-5 h-5" />
           </a>
 
           <a
             href="https://www.linkedin.com/in/anantgupta7628/"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:underline"
+            aria-label="LinkedIn"
+            className="hover:text-gray-900 dark:hover:text-gray-100 transition"
           >
-            LinkedIn
+            <Linkedin className="w-5 h-5" />
           </a>
         </div>
 
+        {/* BOTTOM LINE */}
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+          Built with ❤️ by students, for students · VITor © {new Date().getFullYear()}
+        </p>
       </div>
     </footer>
   );

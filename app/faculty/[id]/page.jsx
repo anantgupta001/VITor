@@ -1,27 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/context/AuthContext";
 import ReviewForm from "@/components/ReviewForm";
 
+import {
+  CalendarCheck,
+  PenLine,
+  GraduationCap,
+  Handshake,
+  Star,
+  Users,
+  ArrowLeft,
+} from "lucide-react";
+
 export default function FacultyDetailPage() {
   const { id } = useParams();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
-
-  // ✅ read params SAFELY
-  const page = searchParams.get("page") || 1;
-  const q = searchParams.has("q") ? searchParams.get("q") : null;
 
   const [faculty, setFaculty] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  /* ================= LOAD DATA ================= */
 
   useEffect(() => {
     if (!id) return;
@@ -34,11 +37,8 @@ export default function FacultyDetailPage() {
         const fSnap = await getDoc(facultyRef);
         const rSnap = await getDocs(reviewsRef);
 
-        if (fSnap.exists()) {
-          setFaculty(fSnap.data());
-        } else {
-          setFaculty(null);
-        }
+        if (fSnap.exists()) setFaculty(fSnap.data());
+        else setFaculty(null);
 
         setReviews(rSnap.docs.map((d) => d.data()));
       } catch (err) {
@@ -51,52 +51,41 @@ export default function FacultyDetailPage() {
     load();
   }, [id]);
 
-  /* ================= BACK HANDLER ================= */
-
-  function goBack() {
-    const params = new URLSearchParams();
-    params.set("page", page);
-
-    // ✅ add q ONLY if it truly existed & non-empty
-    if (q && q.trim().length > 0) {
-      params.set("q", q);
-    }
-
-    router.push(`/?${params.toString()}`);
-  }
-
-  /* ================= STATES ================= */
-
-  if (loading) {
+  if (loading)
     return (
       <div className="p-10 text-gray-700 dark:text-gray-300">
         Loading...
       </div>
     );
-  }
 
-  if (!faculty) {
+  if (!faculty)
     return (
       <div className="p-10 text-red-500 dark:text-red-400">
         Faculty not found
       </div>
     );
-  }
-
-  /* ================= UI ================= */
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-6 py-8">
 
-        {/* 🔙 BACK BUTTON */}
+        {/* BACK BUTTON */}
         <button
-          onClick={goBack}
-          className="mb-6 text-sm text-gray-600 dark:text-gray-300 hover:underline"
+          onClick={() => router.back()}
+          className="
+            mb-6
+            inline-flex items-center gap-2
+            text-sm font-medium
+            text-gray-600 dark:text-gray-400
+            hover:text-gray-900 dark:hover:text-gray-200
+            transition
+          "
         >
-          ← Back to results
+          <ArrowLeft className="w-4 h-4" />
+          Back
         </button>
 
+        {/* MAIN GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
           {/* ========== LEFT COLUMN ========== */}
@@ -107,19 +96,17 @@ export default function FacultyDetailPage() {
               <img
                 src={faculty.photo}
                 alt={faculty.name}
-                className="w-full h-80 object-cover rounded-xl"
+                className="w-full h-80 object-cover object-top rounded-xl"
               />
               <p className="mt-4 text-center font-semibold text-lg text-gray-900 dark:text-gray-100">
                 {faculty.name}
               </p>
             </div>
 
-            {/* WARNING IF NOT LOGGED IN */}
+            {/* WARNING */}
             {!user && (
-              <div className="rounded-xl border border-amber-300 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 flex items-start gap-3">
-                <span className="text-amber-600 dark:text-amber-400 text-lg">
-                  ⚠️
-                </span>
+              <div className="rounded-xl border border-amber-300 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 flex gap-3">
+                <span className="text-amber-600 dark:text-amber-400">⚠️</span>
                 <p className="text-sm text-amber-800 dark:text-amber-300">
                   Please sign in using your official college ID to submit a review.
                 </p>
@@ -159,12 +146,12 @@ export default function FacultyDetailPage() {
 
             {/* STATS */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <Stat title="Attendance" value={faculty.avgAttendance} />
-              <Stat title="Correction" value={faculty.avgCorrection} />
-              <Stat title="Teaching" value={faculty.avgTeaching} />
-              <Stat title="Approachability" value={faculty.avgApproachability} />
-              <Stat title="Overall Rating" value={faculty.avgRating} />
-              <Stat title="Total Reviews" value={faculty.reviewCount} isCount />
+              <Stat icon={CalendarCheck} title="Attendance" value={faculty.avgAttendance} />
+              <Stat icon={PenLine} title="Correction" value={faculty.avgCorrection} />
+              <Stat icon={GraduationCap} title="Teaching" value={faculty.avgTeaching} />
+              <Stat icon={Handshake} title="Approachability" value={faculty.avgApproachability} />
+              <Stat icon={Star} title="Overall Rating" value={faculty.avgRating} />
+              <Stat icon={Users} title="Total Reviews" value={faculty.reviewCount} isCount />
             </div>
 
             {/* REVIEWS */}
@@ -185,15 +172,26 @@ export default function FacultyDetailPage() {
                     key={i}
                     className="bg-white dark:bg-gray-800 rounded-xl shadow p-4"
                   >
-                    <p className="text-gray-800 dark:text-gray-200 mb-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="font-semibold text-gray-900 dark:text-gray-100">
+                        Anonymous
+                      </p>
+                      <Star className="w-4 h-4 text-yellow-400" />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {r.overall}
+                      </span>
+                    </div>
+
+                    <p className="text-gray-800 dark:text-gray-200 mb-3">
                       {r.text}
                     </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      Attendance {r.attendance} ★ ·
-                      Correction {r.correction} ★ ·
-                      Teaching {r.teaching} ★ ·
-                      Approachability {r.approachability} ★
-                    </p>
+
+                    <div className="flex flex-wrap gap-4 text-xs text-gray-600 dark:text-gray-400">
+                      <Metric icon={CalendarCheck} value={r.attendance} />
+                      <Metric icon={PenLine} value={r.correction} />
+                      <Metric icon={GraduationCap} value={r.teaching} />
+                      <Metric icon={Handshake} value={r.approachability} />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -206,24 +204,37 @@ export default function FacultyDetailPage() {
   );
 }
 
-/* ========== SMALL COMPONENT ========== */
+/* ========== SMALL COMPONENTS ========== */
 
-function Stat({ title, value, isCount }) {
+function Stat({ icon: Icon, title, value, isCount }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+      <Icon className="w-5 h-5 mx-auto mb-2 text-gray-500 dark:text-gray-400" />
       <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
         {value !== undefined && value !== null
           ? isCount
-            ? value
+            ? formatCount(value)
             : value.toFixed(2)
           : "—"}
-        {!isCount && value != null && (
-          <span className="text-sm"> /5</span>
-        )}
+        {!isCount && value != null && <span className="text-sm"> /5</span>}
       </div>
       <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
         {title}
       </div>
     </div>
   );
+}
+
+function Metric({ icon: Icon, value }) {
+  return (
+    <span className="flex items-center gap-1">
+      <Icon className="w-3.5 h-3.5" />
+      {value}
+    </span>
+  );
+}
+
+function formatCount(num) {
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
+  return num;
 }

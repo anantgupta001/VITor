@@ -21,3 +21,14 @@ body {
   @apply bg-slate-100 dark:bg-gray-900
          text-gray-900 dark:text-gray-100;
 }
+
+/* Hide scrollbar but keep scroll */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE & Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+

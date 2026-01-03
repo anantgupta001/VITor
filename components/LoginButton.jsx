@@ -7,7 +7,6 @@ import { useState } from "react";
 
 /* ================= CONFIG ================= */
 
-// ✅ Allowed college domains (future-proof)
 const ALLOWED_DOMAINS = [
   "vitapstudent.ac.in",
   // "vitap.ac.in",
@@ -22,7 +21,6 @@ export default function LoginButton() {
 
   const handleLogin = async () => {
     setError("");
-
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email || "";
@@ -43,6 +41,7 @@ export default function LoginButton() {
   };
 
   /* ================= LOGGED IN ================= */
+
   if (user) {
     return (
       <button
@@ -62,31 +61,34 @@ export default function LoginButton() {
   }
 
   /* ================= LOGGED OUT ================= */
+
   return (
     <div className="flex flex-col items-end gap-1">
       <button
         onClick={handleLogin}
+        aria-label="Sign in with Google"
         className="
-          flex items-center gap-3 px-4 py-2 rounded-lg border shadow-sm
+          flex items-center gap-2
+          px-3 sm:px-4 py-2 rounded-lg border shadow-sm
           bg-white dark:bg-gray-800
           border-gray-300 dark:border-gray-600
           hover:bg-gray-50 dark:hover:bg-gray-700
           transition
         "
       >
-        {/* Google Logo */}
+        {/* GOOGLE SVG (NO WHITE BOX ✅) */}
         <img
-          src="https://developers.google.com/identity/images/g-logo.png"
+          src="/google.svg"
           alt="Google"
           className="w-5 h-5"
         />
 
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+        {/* TEXT ONLY ON DESKTOP */}
+        <span className="hidden sm:inline text-sm font-medium text-gray-700 dark:text-gray-200">
           Sign in with Google
         </span>
       </button>
 
-      {/* ERROR */}
       {error && (
         <p className="text-xs text-red-500 dark:text-red-400">
           {error}
