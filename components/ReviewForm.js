@@ -75,7 +75,7 @@ export default function ReviewForm({ facultyId }) {
       // 2️⃣ Recalculate faculty stats
       await updateFacultyStats(facultyId);
 
-      // 3️⃣ CLEAR STATE *AFTER SUCCESS*
+      // 3️⃣ CLEAR STATE
       setComment("");
       setRatings({
         attendance: 0,
@@ -100,7 +100,14 @@ export default function ReviewForm({ facultyId }) {
         onChange={(e) => setComment(e.target.value)}
         placeholder="Write your honest experience (minimum 10 characters)"
         rows={4}
-        className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
+        className="
+          w-full rounded-lg p-3 text-sm border
+          bg-white dark:bg-gray-800
+          border-gray-300 dark:border-gray-600
+          text-gray-900 dark:text-gray-100
+          focus:outline-none focus:ring-2
+          focus:ring-slate-200 dark:focus:ring-gray-700
+        "
       />
 
       {/* STAR INPUTS */}
@@ -109,7 +116,7 @@ export default function ReviewForm({ facultyId }) {
           key={m.key}
           className="flex items-center justify-between"
         >
-          <span className="text-sm font-medium">
+          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
             {m.label} *
           </span>
 
@@ -131,7 +138,9 @@ export default function ReviewForm({ facultyId }) {
 
       {/* ERROR */}
       {error && (
-        <p className="text-sm text-red-500">{error}</p>
+        <p className="text-sm text-red-500 dark:text-red-400">
+          {error}
+        </p>
       )}
 
       {/* SUBMIT */}
@@ -139,16 +148,11 @@ export default function ReviewForm({ facultyId }) {
         onClick={submitReview}
         disabled={!allRated || !validComment || submitting}
         className={`
-          w-full
-          py-2.5
-          rounded-lg
-          text-sm
-          font-medium
-          transition
+          w-full py-2.5 rounded-lg text-sm font-medium transition
           ${
             !allRated || !validComment || submitting
-              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-              : "bg-black text-white hover:bg-gray-900"
+              ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+              : "bg-black dark:bg-white text-white dark:text-black hover:bg-gray-900 dark:hover:bg-gray-200"
           }
         `}
       >
@@ -215,9 +219,14 @@ function StarRow({
         return (
           <span
             key={i}
-            className={`text-xl cursor-pointer transition ${
-              active ? "text-yellow-400" : "text-gray-300"
-            }`}
+            className={`
+              text-xl cursor-pointer transition
+              ${
+                active
+                  ? "text-yellow-400"
+                  : "text-gray-300 dark:text-gray-500"
+              }
+            `}
             onMouseEnter={() => onHover(starValue)}
             onMouseLeave={onLeave}
             onClick={() => onSelect(starValue)}

@@ -10,8 +10,8 @@ import { useState } from "react";
 // ✅ Allowed college domains (future-proof)
 const ALLOWED_DOMAINS = [
   "vitapstudent.ac.in",
-  // "vitap.ac.in",        // uncomment later if needed
-  // "vitstudent.ac.in",   // future campuses
+  // "vitap.ac.in",
+  // "vitstudent.ac.in",
 ];
 
 /* ================= COMPONENT ================= */
@@ -26,10 +26,8 @@ export default function LoginButton() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email || "";
-
       const domain = email.split("@")[1];
 
-      // ❌ Domain not allowed
       if (!ALLOWED_DOMAINS.includes(domain)) {
         await signOut(auth);
         setError("Please sign in using your official VIT student email ID.");
@@ -44,22 +42,37 @@ export default function LoginButton() {
     await signOut(auth);
   };
 
+  /* ================= LOGGED IN ================= */
   if (user) {
     return (
       <button
         onClick={handleLogout}
-        className="px-4 py-2 rounded-lg border text-sm bg-white hover:bg-gray-100"
+        className="
+          px-4 py-2 rounded-lg border text-sm
+          bg-white dark:bg-gray-800
+          border-gray-300 dark:border-gray-600
+          text-gray-700 dark:text-gray-200
+          hover:bg-gray-100 dark:hover:bg-gray-700
+          transition
+        "
       >
         Logout
       </button>
     );
   }
 
+  /* ================= LOGGED OUT ================= */
   return (
     <div className="flex flex-col items-end gap-1">
       <button
         onClick={handleLogin}
-        className="flex items-center gap-3 px-4 py-2 bg-white border rounded-lg shadow-sm hover:bg-gray-50 transition"
+        className="
+          flex items-center gap-3 px-4 py-2 rounded-lg border shadow-sm
+          bg-white dark:bg-gray-800
+          border-gray-300 dark:border-gray-600
+          hover:bg-gray-50 dark:hover:bg-gray-700
+          transition
+        "
       >
         {/* Google Logo */}
         <img
@@ -68,14 +81,14 @@ export default function LoginButton() {
           className="w-5 h-5"
         />
 
-        <span className="text-sm font-medium text-gray-700">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
           Sign in with Google
         </span>
       </button>
 
       {/* ERROR */}
       {error && (
-        <p className="text-xs text-red-500">
+        <p className="text-xs text-red-500 dark:text-red-400">
           {error}
         </p>
       )}
