@@ -1,7 +1,7 @@
-# 🎓 VITor — Faculty Rating Platform for VIT-AP
+# 🎓 VITor — Faculty Rating Platform for VIT
 
-**VITor** is a **student-driven faculty rating platform** built exclusively for **VIT-AP University students**.  
-It enables students to **anonymously rate and review faculty members** across multiple academic and support-related parameters, helping peers make informed academic decisions.
+**VITor** is a **student-driven faculty rating platform** for **VIT students** across **Vellore, Chennai, Bhopal, and AP** campuses.  
+Students **anonymously rate and review faculty** on attendance, correction, teaching, and approachability — helping peers make informed academic decisions.
 
 ---
 
@@ -23,6 +23,7 @@ It enables students to **anonymously rate and review faculty members** across mu
 
 ## ✨ Features
 
+- 🏫 **Multi-campus support** — Vellore, Chennai, Bhopal, AP; choose campus and view faculty per campus  
 - 🔐 **College-only authentication** using official VIT student email IDs  
 - 🕵️ **Anonymous reviews** — student identities are never revealed  
 - ⭐ **Multi-criteria rating system**
@@ -33,8 +34,9 @@ It enables students to **anonymously rate and review faculty members** across mu
 - 📊 **Automatic average ratings** and total review count per faculty  
 - 🔎 **Search with pagination** for smooth navigation  
 - 🌙 **System-aware Dark / Light mode** with manual toggle  
-- 📱 **Fully responsive UI** (mobile & desktop)  
-- 🔥 **Real-time updates** powered by Firebase  
+- 📱 **Fully responsive UI** (mobile & desktop; short campus names on small screens)  
+- 🔥 **Real-time updates** powered by Firebase Firestore  
+- 📄 **Reviews in batches** — 3 reviews initially, then “Show more” to load 3 at a time  
 - 🚀 **Production-ready Next.js application**
 
 ---
@@ -207,7 +209,7 @@ git commit -m "feat: short description of your change"
 ## 📜 Disclaimer
 
 VITor is an **independent student initiative**  
-and is **NOT officially affiliated with VIT-AP University**.
+and is **NOT officially affiliated with VIT or any of its campuses**.
 
 All reviews reflect personal student opinions and experiences.  
 The platform aims to promote transparency and help students make informed academic decisions.
