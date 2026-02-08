@@ -88,26 +88,29 @@ Each faculty is evaluated from a **student’s perspective**, focusing on fairne
 
 ~~~text
 app/
- ├─ page.js                # Home (Server wrapper)
- ├─ HomeClient.jsx         # Home UI & logic
- ├─ faculty/[id]/page.js   # Faculty detail page
- ├─ layout.js              # Global layout
- ├─ providers.js           # Theme & Auth providers
+ ├─ page.js                    # Home route (campus selector)
+ ├─ layout.js                  # Root layout
+ ├─ providers.js               # Theme + auth providers
+ ├─ [campus]/
+ │   ├─ page.jsx                # Route only → CampusHome
+ │   └─ [id]/page.jsx           # Route only → FacultyDetail
+ ├─ context/
+ │   └─ auth-context.js         # Auth state & useAuth
 
 components/
- ├─ Navbar.jsx
- ├─ Footer.jsx
- ├─ FacultyCard.jsx
- ├─ ReviewForm.jsx
- ├─ InfoCard.jsx
- ├─ LoginButton.jsx
- ├─ ThemeToggle.jsx
+ ├─ CampusSelector.jsx          # Campus picker (home)
+ ├─ CampusHome.jsx              # Campus faculty list (used by [campus]/page)
+ ├─ FacultyDetail.jsx           # Single faculty profile (used by [campus]/[id]/page)
+ ├─ Navbar.jsx, Footer.jsx
+ ├─ FacultyCard.jsx, ReviewForm.jsx
+ ├─ InfoCard.jsx, FeatureItem.jsx
+ ├─ LoginButton.jsx, ThemeToggle.jsx
 
 lib/
- ├─ firebase.js
-
-context/
- ├─ AuthContext.js
+ ├─ firebase-config.js         # Firebase app, auth, Firestore
+ ├─ campus-config.js           # Campus slugs & helpers
+ ├─ faculty-helpers.js         # e.g. getFacultyPhoto
+ ├─ campus-home-content.js    # Feature bullets & criteria copy
 ~~~
 
 ---

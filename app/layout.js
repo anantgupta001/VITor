@@ -14,18 +14,9 @@ export default function RootLayout({ children }) {
       <body className="min-h-screen flex flex-col bg-slate-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
         
         <Providers>
-
-          {/* 🌐 GLOBAL NAVBAR */}
           <Navbar />
-
-          {/* 📄 PAGE CONTENT */}
-          <main className="flex-1">
-            {children}
-          </main>
-
-          {/* 🌐 GLOBAL FOOTER */}
+          <main className="flex-1">{children}</main>
           <Footer />
-
         </Providers>
 
       </body>

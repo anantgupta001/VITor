@@ -1,51 +1,49 @@
 "use client";
 
+import { useEffect } from "react";
 import { signInWithPopup, signOut } from "firebase/auth";
-import { auth, googleProvider } from "@/lib/firebase";
-import { useAuth } from "@/app/context/AuthContext";
-import { useState } from "react";
-
-/* ================= CONFIG ================= */
+import { auth, googleProvider } from "@/lib/firebase-config";
+import { useAuth } from "@/app/context/auth-context";
 
 const ALLOWED_DOMAINS = [
   "vitapstudent.ac.in",
-  // "vitap.ac.in",
-  // "vitstudent.ac.in",
+  "vitstudent.ac.in",
+  "vitbhopal.ac.in",
 ];
 
-/* ================= COMPONENT ================= */
+const COLLEGE_ID_MESSAGE = "Login with your college ID (VIT student email only).";
+const ERROR_DURATION_MS = 4000;
 
 export default function LoginButton() {
-  const { user } = useAuth();
-  const [error, setError] = useState("");
+  const { user, logout, loginError, setLoginError } = useAuth();
+
+  useEffect(() => {
+    if (!loginError) return;
+    const t = setTimeout(() => setLoginError(""), ERROR_DURATION_MS);
+    return () => clearTimeout(t);
+  }, [loginError, setLoginError]);
 
   const handleLogin = async () => {
-    setError("");
+    setLoginError("");
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email || "";
-      const domain = email.split("@")[1];
+      const domain = (email.split("@")[1] || "").toLowerCase();
 
       if (!ALLOWED_DOMAINS.includes(domain)) {
+        setLoginError(COLLEGE_ID_MESSAGE);
         await signOut(auth);
-        setError("Please sign in using your official VIT student email ID.");
       }
     } catch (err) {
       console.error(err);
-      setError("Login failed. Please try again.");
+      setLoginError("Login failed. Please try again.");
     }
   };
-
-  const handleLogout = async () => {
-    await signOut(auth);
-  };
-
-  /* ================= LOGGED IN ================= */
 
   if (user) {
     return (
       <button
-        onClick={handleLogout}
+        onClick={logout}
         className="
           px-4 py-2 rounded-lg border text-sm
           bg-white dark:bg-gray-800
@@ -60,10 +58,8 @@ export default function LoginButton() {
     );
   }
 
-  /* ================= LOGGED OUT ================= */
-
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="relative flex flex-col items-end">
       <button
         onClick={handleLogin}
         aria-label="Sign in with Google"
@@ -76,23 +72,19 @@ export default function LoginButton() {
           transition
         "
       >
-        {/* GOOGLE SVG (NO WHITE BOX ✅) */}
-        <img
-          src="/google.svg"
-          alt="Google"
-          className="w-5 h-5"
-        />
-
-        {/* TEXT ONLY ON DESKTOP */}
+        <img src="/google.svg" alt="Google" className="w-5 h-5" />
         <span className="hidden sm:inline text-sm font-medium text-gray-700 dark:text-gray-200">
           Sign in with Google
         </span>
       </button>
 
-      {error && (
-        <p className="text-xs text-red-500 dark:text-red-400">
-          {error}
-        </p>
+      {loginError && (
+        <div
+          className="absolute top-full right-0 mt-2 z-50 min-w-[240px] max-w-[320px] sm:max-w-sm px-3 py-2.5 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/80 text-red-700 dark:text-red-300 text-sm font-medium shadow-lg"
+          role="alert"
+        >
+          {loginError}
+        </div>
       )}
     </div>
   );

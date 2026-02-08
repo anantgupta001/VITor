@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import HomeClient from "./HomeClient";
+import CampusSelector from "@/components/CampusSelector";
 
 export default function Page() {
   return (
     <Suspense fallback={<div className="p-10">Loading...</div>}>
-      <HomeClient />
+      <CampusSelector />
     </Suspense>
   );
 }

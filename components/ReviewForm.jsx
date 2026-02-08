@@ -9,8 +9,8 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { useAuth } from "@/app/context/AuthContext";
+import { db } from "@/lib/firebase-config";
+import { useAuth } from "@/app/context/auth-context";
 
 import {
   CalendarCheck,
@@ -21,8 +21,6 @@ import {
   Star,
 } from "lucide-react";
 
-/* ================= CONFIG ================= */
-
 const metrics = [
   { key: "attendance", label: "Attendance", icon: CalendarCheck },
   { key: "correction", label: "Correction", icon: PenLine },
@@ -30,10 +28,9 @@ const metrics = [
   { key: "approachability", label: "Approachability", icon: Handshake },
 ];
 
-/* ================= COMPONENT ================= */
-
-export default function ReviewForm({ facultyId }) {
-  const { user } = useAuth();
+export default function ReviewForm({ campusSlug, facultyId }) {
+  const { user, userCampus } = useAuth();
+  const canSubmit = user && userCampus === campusSlug;
 
   const [ratings, setRatings] = useState({
     attendance: 0,
@@ -51,7 +48,7 @@ export default function ReviewForm({ facultyId }) {
   const validComment = comment.trim().length >= 10;
 
   async function submitReview() {
-    if (!user || !allRated || !validComment || submitting) return;
+    if (!canSubmit || !allRated || !validComment || submitting) return;
 
     setSubmitting(true);
     setError(null);
@@ -64,8 +61,9 @@ export default function ReviewForm({ facultyId }) {
           ratings.approachability) /
         4;
 
+      const reviewRef = doc(db, "campuses", campusSlug, "faculties", facultyId, "reviews", user.uid);
       await setDoc(
-        doc(db, "faculties", facultyId, "reviews", user.uid),
+        reviewRef,
         {
           user: "Anonymous User",
           userId: user.uid,
@@ -77,7 +75,7 @@ export default function ReviewForm({ facultyId }) {
         { merge: true }
       );
 
-      await updateFacultyStats(facultyId);
+      await updateFacultyStats(campusSlug, facultyId);
 
       setComment("");
       setRatings({
@@ -171,11 +169,11 @@ export default function ReviewForm({ facultyId }) {
       {/* SUBMIT */}
       <button
         onClick={submitReview}
-        disabled={!allRated || !validComment || submitting}
+        disabled={!canSubmit || !allRated || !validComment || submitting}
         className={`
           w-full py-2.5 rounded-lg text-sm font-medium transition
           ${
-            !allRated || !validComment || submitting
+            !canSubmit || !allRated || !validComment || submitting
               ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
               : "bg-black dark:bg-white text-white dark:text-black hover:bg-gray-900 dark:hover:bg-gray-200"
           }
@@ -187,12 +185,10 @@ export default function ReviewForm({ facultyId }) {
   );
 }
 
-/* ================= HELPERS ================= */
-
-async function updateFacultyStats(facultyId) {
-  const snap = await getDocs(
-    collection(db, "faculties", facultyId, "reviews")
-  );
+async function updateFacultyStats(campusSlug, facultyId) {
+  const reviewsPath = ["campuses", campusSlug, "faculties", facultyId, "reviews"];
+  const facultyDocPath = ["campuses", campusSlug, "faculties", facultyId];
+  const snap = await getDocs(collection(db, ...reviewsPath));
 
   const total = snap.size;
   if (total === 0) return;
@@ -214,7 +210,7 @@ async function updateFacultyStats(facultyId) {
     sum.overall += r.overall;
   });
 
-  await updateDoc(doc(db, "faculties", facultyId), {
+  await updateDoc(doc(db, ...facultyDocPath), {
     avgAttendance: +(sum.attendance / total).toFixed(2),
     avgCorrection: +(sum.correction / total).toFixed(2),
     avgTeaching: +(sum.teaching / total).toFixed(2),
@@ -223,8 +219,6 @@ async function updateFacultyStats(facultyId) {
     reviewCount: total,
   });
 }
-
-/* ================= STAR UI ================= */
 
 function StarRow({ value, hoverValue, onHover, onLeave, onSelect }) {
   return (

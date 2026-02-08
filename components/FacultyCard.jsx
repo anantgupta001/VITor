@@ -8,7 +8,7 @@ import {
   Star,
 } from "lucide-react";
 
-/* ================= HELPERS ================= */
+import { getFacultyPhoto, getScoreColorClass } from "@/lib/faculty-helpers";
 
 function formatNumber(num) {
   if (!num || num === 0) return "0";
@@ -20,32 +20,30 @@ function formatNumber(num) {
 }
 
 function StatRow({ icon: Icon, label, value }) {
+  const scoreClass = getScoreColorClass(value);
   return (
     <div className="flex items-center justify-between text-sm text-gray-700 dark:text-gray-300">
       <span className="flex items-center gap-2">
         <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         {label}
       </span>
-      <span className="font-medium">
+      <span className={`font-medium ${scoreClass}`}>
         {value !== null && value !== undefined ? value.toFixed(1) : "—"}
       </span>
     </div>
   );
 }
 
-/* ================= CARD ================= */
-
-export default function FacultyCard({ faculty, currentPage, query }) {
+export default function FacultyCard({ faculty, campusSlug, currentPage, query }) {
   const params = new URLSearchParams();
-  params.set("page", currentPage);
-
-  if (query && query.trim().length > 0) {
-    params.set("q", query);
-  }
+  if (currentPage) params.set("page", currentPage);
+  if (query?.trim()) params.set("q", query);
+  const qs = params.toString();
+  const href = `/${campusSlug}/${faculty.id}${qs ? `?${qs}` : ""}`;
 
   return (
     <Link
-      href={`/faculty/${faculty.id}?${params.toString()}`}
+      href={href}
       className="block h-full"
     >
       <div
@@ -61,8 +59,8 @@ export default function FacultyCard({ faculty, currentPage, query }) {
         <div className="p-3">
           <div className="h-44 w-full rounded-xl bg-gray-100 dark:bg-gray-700 overflow-hidden">
             <img
-              src={faculty.photo}
-              alt={faculty.name}
+              src={getFacultyPhoto(faculty)}
+              alt={faculty.name || "Faculty"}
               className="w-full h-full object-cover object-top"
             />
           </div>
@@ -112,7 +110,7 @@ export default function FacultyCard({ faculty, currentPage, query }) {
           {/* FOOTER */}
           <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-sm">
             {/* OVERALL */}
-            <div className="flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-100">
+            <div className={`flex items-center gap-2 font-semibold ${getScoreColorClass(faculty.avgRating)}`}>
               <Star className="w-4 h-4 text-yellow-400" />
               {faculty.avgRating ? faculty.avgRating.toFixed(1) : "—"}
             </div>
