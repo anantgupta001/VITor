@@ -8,16 +8,9 @@ import {
   Star,
 } from "lucide-react";
 
-import { getFacultyPhoto, getScoreColorClass } from "@/lib/faculty-helpers";
-
-function formatNumber(num) {
-  if (!num || num === 0) return "0";
-  if (num >= 1_000_000)
-    return (num / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-  if (num >= 1_000)
-    return (num / 1_000).toFixed(1).replace(/\.0$/, "") + "k";
-  return num.toString();
-}
+import { getScoreColorClass } from "@/lib/utils/styling";
+import { getFacultyPhoto } from "@/lib/utils/faculty";
+import { formatCompactNumber } from "@/lib/utils/formatters";
 
 function StatRow({ icon: Icon, label, value }) {
   const scoreClass = getScoreColorClass(value);
@@ -36,7 +29,7 @@ function StatRow({ icon: Icon, label, value }) {
 
 export default function FacultyCard({ faculty, campusSlug, currentPage, query }) {
   const params = new URLSearchParams();
-  if (currentPage) params.set("page", currentPage);
+  if (currentPage) params.set("page", String(currentPage));
   if (query?.trim()) params.set("q", query);
   const qs = params.toString();
   const href = `/${campusSlug}/${faculty.id}${qs ? `?${qs}` : ""}`;
@@ -58,6 +51,8 @@ export default function FacultyCard({ faculty, campusSlug, currentPage, query })
         {/* IMAGE */}
         <div className="p-3">
           <div className="h-44 w-full rounded-xl bg-gray-100 dark:bg-gray-700 overflow-hidden">
+            {/* Dynamic faculty photos from external CDNs/S3 */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={getFacultyPhoto(faculty)}
               alt={faculty.name || "Faculty"}
@@ -118,7 +113,7 @@ export default function FacultyCard({ faculty, campusSlug, currentPage, query })
             {/* REVIEW COUNT */}
             <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
               <Users className="w-4 h-4" />
-              {formatNumber(faculty.reviewCount || 0)}
+              {formatCompactNumber(faculty.reviewCount || 0)}
             </div>
           </div>
         </div>

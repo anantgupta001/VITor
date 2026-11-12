@@ -1,41 +1,31 @@
 "use client";
 
-import { useEffect } from "react";
-import { signInWithPopup, signOut } from "firebase/auth";
-import { auth, googleProvider } from "@/lib/firebase-config";
-import { useAuth } from "@/app/context/auth-context";
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import { useAuth } from "@/context/auth-context";
+import { AuthService } from "@/services/auth/auth.service";
 
-const ALLOWED_DOMAINS = [
-  "vitapstudent.ac.in",
-  "vitstudent.ac.in",
-  "vitbhopal.ac.in",
-];
-
-const COLLEGE_ID_MESSAGE = "Login with your college ID (VIT student email only).";
 const ERROR_DURATION_MS = 4000;
 
 export default function LoginButton() {
-  const { user, logout, loginError, setLoginError } = useAuth();
+  const { user, logout } = useAuth();
+  const [loginError, setLoginError] = useState("");
 
   useEffect(() => {
     if (!loginError) return;
-    const t = setTimeout(() => setLoginError(""), ERROR_DURATION_MS);
-    return () => clearTimeout(t);
-  }, [loginError, setLoginError]);
+    const timer = setTimeout(() => setLoginError(""), ERROR_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, [loginError]);
 
   const handleLogin = async () => {
     setLoginError("");
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const email = result.user.email || "";
-      const domain = (email.split("@")[1] || "").toLowerCase();
-
-      if (!ALLOWED_DOMAINS.includes(domain)) {
-        setLoginError(COLLEGE_ID_MESSAGE);
-        await signOut(auth);
+      const result = await AuthService.signInWithGoogle();
+      if (!result.success && result.error) {
+        setLoginError(result.error);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Login failure:", err);
       setLoginError("Login failed. Please try again.");
     }
   };
@@ -72,7 +62,7 @@ export default function LoginButton() {
           transition
         "
       >
-        <img src="/google.svg" alt="Google" className="w-5 h-5" />
+        <Image src="/google.svg" alt="Google" width={20} height={20} className="w-5 h-5" />
         <span className="hidden sm:inline text-sm font-medium text-gray-700 dark:text-gray-200">
           Sign in with Google
         </span>

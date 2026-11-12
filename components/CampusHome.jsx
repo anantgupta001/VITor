@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase-config";
-import { isValidCampus, getCampusBySlug } from "@/lib/campus-config";
-import { FEATURE_ITEMS, INFO_CARDS } from "@/lib/campus-home-content";
+import { FacultyRepository } from "@/repositories/faculty.repository";
+import { getCampusBySlug, isValidCampus } from "@/lib/campus";
+import {
+  filterFaculties,
+  getSearchSuggestions,
+  paginate,
+} from "@/lib/utils/faculty-search";
+import { FEATURE_ITEMS, INFO_CARDS } from "@/lib/constants/content.constants";
 import FacultyCard from "@/components/FacultyCard";
 import InfoCard from "@/components/InfoCard";
 import FeatureItem from "@/components/FeatureItem";
@@ -19,11 +23,11 @@ export default function CampusHome() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const pageFromUrl = Number(searchParams.get("page")) || 1;
+  const pageFromUrl = Math.max(1, Number(searchParams.get("page")) || 1);
   const activeQuery = searchParams.get("q") || "";
 
   const [faculties, setFaculties] = useState([]);
-  const [currentPage, setCurrentPage] = useState(pageFromUrl);
+  const [loading, setLoading] = useState(true);
   const [draftQuery, setDraftQuery] = useState(activeQuery);
   const [loadError, setLoadError] = useState(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -33,108 +37,104 @@ export default function CampusHome() {
   const campus = getCampusBySlug(campusSlug);
   const validCampus = isValidCampus(campusSlug);
 
+  // Sync draft query when URL activeQuery changes (e.g. browser back/forward)
+  useEffect(() => {
+    setDraftQuery(activeQuery);
+  }, [activeQuery]);
+
+  // Fetch faculty list for the current campus (one-time fetch)
   useEffect(() => {
     if (!validCampus || !campusSlug) return;
+    let cancelled = false;
+    setLoading(true);
     setLoadError(null);
-    const ref = collection(db, "campuses", campusSlug, "faculties");
-    const unsub = onSnapshot(
-      ref,
-      (snap) => {
-        setFaculties(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setLoadError(null);
-      },
-      (err) => {
+
+    FacultyRepository.getFaculties(campusSlug)
+      .then((data) => {
+        if (!cancelled) {
+          setFaculties(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
         console.error("Firestore error (campuses/faculties):", err);
-        setLoadError(err.message || "Failed to load faculty list.");
-        setFaculties([]);
-      }
-    );
-    return unsub;
+        if (!cancelled) {
+          setLoadError(err?.message || "Failed to load faculty list.");
+          setFaculties([]);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [campusSlug, validCampus]);
 
+  // Keep track of page number before search was initiated
   useEffect(() => {
-    setCurrentPage(pageFromUrl);
-    setDraftQuery(activeQuery);
-  }, [pageFromUrl, activeQuery]);
-
-  useEffect(() => {
-    if (!activeQuery.trim()) pageBeforeSearch.current = pageFromUrl;
+    if (!activeQuery.trim()) {
+      pageBeforeSearch.current = pageFromUrl;
+    }
   }, [activeQuery, pageFromUrl]);
 
-  // Suggestions: unique names & departments that match draftQuery
-  const q = (draftQuery || "").trim().toLowerCase();
-  const suggestions = q.length > 0
-    ? [
-        ...new Set(
-          faculties.flatMap((f) => {
-            const name = (f.name || "").trim();
-            const dept = (f.department || "").trim();
-            const matchName = name && name.toLowerCase().includes(q);
-            const matchDept = dept && dept.toLowerCase().includes(q);
-            return [
-              ...(matchName ? [name] : []),
-              ...(matchDept ? [dept] : []),
-            ];
-          })
-        ),
-      ].slice(0, 8)
-    : [];
+  // Memoized auto-complete suggestions
+  const suggestions = useMemo(() => {
+    return getSearchSuggestions(faculties, draftQuery, 8);
+  }, [faculties, draftQuery]);
 
+  // Close suggestions popover when clicking outside
   useEffect(() => {
-    function close(e) {
+    function handleClickOutside(e) {
       if (searchWrapRef.current && !searchWrapRef.current.contains(e.target)) {
         setShowSuggestions(false);
       }
     }
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
+
+  // Filtered faculty list
+  const filtered = useMemo(() => {
+    return filterFaculties(faculties, activeQuery);
+  }, [faculties, activeQuery]);
+
+  // Paginated faculty list
+  const { currentItems: currentFaculties, totalPages, currentPage } = useMemo(() => {
+    return paginate(filtered, pageFromUrl, ITEMS_PER_PAGE);
+  }, [filtered, pageFromUrl]);
 
   function applySuggestion(text) {
     setDraftQuery(text);
     setShowSuggestions(false);
-    const params = new URLSearchParams();
-    params.set("page", 1);
-    params.set("q", text);
-    router.push(`/${campusSlug}?${params.toString()}`);
+    const urlParams = new URLSearchParams();
+    urlParams.set("page", "1");
+    urlParams.set("q", text);
+    router.push(`/${campusSlug}?${urlParams.toString()}`);
   }
 
-  const filtered = faculties.filter((f) =>
-    `${f.name} ${f.department}`
-      .toLowerCase()
-      .includes(activeQuery.toLowerCase())
-  );
-
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const currentFaculties = filtered.slice(
-    startIndex,
-    startIndex + ITEMS_PER_PAGE
-  );
-
   function goToPage(p) {
-    const params = new URLSearchParams();
-    params.set("page", p);
-    if (activeQuery.trim()) params.set("q", activeQuery);
-    router.push(`/${campusSlug}?${params.toString()}`);
+    const urlParams = new URLSearchParams();
+    urlParams.set("page", String(p));
+    if (activeQuery.trim()) urlParams.set("q", activeQuery);
+    router.push(`/${campusSlug}?${urlParams.toString()}`);
   }
 
   function commitSearch() {
     setShowSuggestions(false);
     const q = draftQuery.trim();
-    const params = new URLSearchParams();
-    params.set("page", 1);
-    if (q) params.set("q", q);
-    router.push(`/${campusSlug}?${params.toString()}`);
+    const urlParams = new URLSearchParams();
+    urlParams.set("page", "1");
+    if (q) urlParams.set("q", q);
+    router.push(`/${campusSlug}?${urlParams.toString()}`);
   }
 
   function clearSearch() {
     setDraftQuery("");
     setShowSuggestions(false);
-    const params = new URLSearchParams();
+    const urlParams = new URLSearchParams();
     const pageToRestore = pageBeforeSearch.current;
-    if (pageToRestore > 1) params.set("page", pageToRestore);
-    router.push(`/${campusSlug}${params.toString() ? `?${params.toString()}` : ""}`);
+    if (pageToRestore > 1) urlParams.set("page", String(pageToRestore));
+    router.push(`/${campusSlug}${urlParams.toString() ? `?${urlParams.toString()}` : ""}`);
   }
 
   if (campusSlug && !validCampus) {
@@ -160,7 +160,10 @@ export default function CampusHome() {
           <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm">
             {loadError}
             <p className="mt-2 text-xs opacity-90">
-              Check Firestore rules allow read on <code className="bg-red-100 dark:bg-red-900/40 px-1 rounded">campuses/{campusSlug}/faculties</code>
+              Check Firestore rules allow read on{" "}
+              <code className="bg-red-100 dark:bg-red-900/40 px-1 rounded">
+                campuses/{campusSlug}/faculties
+              </code>
             </p>
           </div>
         )}
@@ -240,6 +243,7 @@ export default function CampusHome() {
                     <button
                       type="button"
                       role="option"
+                      aria-selected={false}
                       onClick={() => applySuggestion(s)}
                       className="
                         w-full text-left px-4 py-2.5 text-sm
@@ -272,19 +276,29 @@ export default function CampusHome() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {currentFaculties.map((f) => (
-            <FacultyCard
-              key={f.id}
-              faculty={f}
-              campusSlug={campusSlug}
-              currentPage={currentPage}
-              query={activeQuery}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="py-16 text-center text-gray-500 dark:text-gray-400">
+            Loading faculty members...
+          </div>
+        ) : currentFaculties.length === 0 ? (
+          <div className="py-16 text-center text-gray-500 dark:text-gray-400">
+            No faculty members found.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {currentFaculties.map((f) => (
+              <FacultyCard
+                key={f.id}
+                faculty={f}
+                campusSlug={campusSlug}
+                currentPage={currentPage}
+                query={activeQuery}
+              />
+            ))}
+          </div>
+        )}
 
-        {totalPages > 1 && (
+        {!loading && totalPages > 1 && (
           <div className="flex justify-center items-center gap-4 mt-12">
             <button
               disabled={currentPage === 1}

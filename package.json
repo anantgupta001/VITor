@@ -1,12 +1,18 @@
+
 {
   "name": "vitor",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test tests/auth.service.test.js tests/campus.test.js tests/faculty-utils.test.js tests/faculty.repository.test.js tests/faculty.service.test.js tests/formatters.test.js tests/reviews.repository.test.js tests/reviews.service.test.js tests/user.repository.test.js",
+    "test:integration": "node scripts/run-integration-tests.mjs",
+    "test:components": "vitest run",
+    "test:e2e": "node scripts/run-e2e-tests.mjs",
+    "test:security": "node scripts/run-security-tests.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -26,11 +32,19 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "@playwright/test": "^1.65.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.10",
+    "@vitejs/plugin-react": "^6.3.0",
     "autoprefixer": "^10.4.23",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "firebase-tools": "^15.5.1",
+    "jsdom": "^29.1.1",
     "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.19"
+    "tailwindcss": "^3.4.19",
+    "vitest": "^4.1.12"
   }
 }

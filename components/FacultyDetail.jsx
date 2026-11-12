@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { doc, getDoc, collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase-config";
-import { useAuth } from "@/app/context/auth-context";
-import { isValidCampus, getCampusBySlug, isDualCampusEmail, DUAL_CAMPUS_SLUGS } from "@/lib/campus-config";
-import { getFacultyPhoto, getScoreColorClass } from "@/lib/faculty-helpers";
+import { useAuth } from "@/context/auth-context";
+import { FacultyRepository } from "@/repositories/faculty.repository";
+import { ReviewsRepository } from "@/repositories/reviews.repository";
+import { isValidCampus, getDualCampusOptions, getCampusBySlug, isDualCampusEmail } from "@/lib/campus";
+import { getFacultyPhoto } from "@/lib/utils/faculty";
+import { getScoreColorClass } from "@/lib/utils/styling";
+import { formatCount } from "@/lib/utils/formatters";
 import ReviewForm from "@/components/ReviewForm";
 
 import {
@@ -28,54 +30,90 @@ export default function FacultyDetail() {
   const { campus: campusSlug, id } = useParams();
   const searchParams = useSearchParams();
   const { user, userCampus, setUserCampus } = useAuth();
-  const canRateThisCampus = user && userCampus && userCampus === campusSlug;
+  const canRateThisCampus = Boolean(user && userCampus && userCampus === campusSlug);
 
   const page = searchParams.get("page");
   const q = searchParams.get("q");
-  const backHref = `/${campusSlug}${page || q ? `?${new URLSearchParams({ ...(page && { page }), ...(q && { q }) }).toString()}` : ""}`;
+  const backHref = `/${campusSlug}${
+    page || q
+      ? `?${new URLSearchParams({ ...(page && { page }), ...(q && { q }) }).toString()}`
+      : ""
+  }`;
 
   const [faculty, setFaculty] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(REVIEWS_INITIAL);
+  const [refreshingReviews, setRefreshingReviews] = useState(false);
 
   const validCampus = isValidCampus(campusSlug);
 
   useEffect(() => {
     if (!id || !campusSlug || !validCampus) return;
+    let cancelled = false;
 
-    async function load() {
+    async function loadFacultyAndReviews() {
       try {
-        const facultyRef = doc(db, "campuses", campusSlug, "faculties", id);
-        const reviewsRef = collection(
-          db,
-          "campuses",
-          campusSlug,
-          "faculties",
-          id,
-          "reviews"
-        );
+        const [facultyData, reviewsData] = await Promise.all([
+          FacultyRepository.getFacultyById(campusSlug, id),
+          ReviewsRepository.getReviewsByFaculty(campusSlug, id),
+        ]);
 
-        const fSnap = await getDoc(facultyRef);
-        const rSnap = await getDocs(reviewsRef);
-
-        if (fSnap.exists()) setFaculty(fSnap.data());
-        else setFaculty(null);
-
-        setReviews(rSnap.docs.map((d) => d.data()));
+        if (!cancelled) {
+          setFaculty(facultyData);
+          setReviews(reviewsData);
+        }
       } catch (err) {
-        console.error("Failed to load faculty:", err);
+        console.error("Failed to load faculty details:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
-    load();
+    loadFacultyAndReviews();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id, campusSlug, validCampus]);
 
   useEffect(() => {
     setVisibleCount(REVIEWS_INITIAL);
   }, [id]);
+
+  /**
+   * Called by ReviewForm after a successful submission.
+   * - Merges updated aggregate stats into faculty state immediately (no refetch needed).
+   * - Uses already fetched review list from submitReview to avoid duplicate fetches,
+   *   or falls back to fetching fresh reviews if not provided.
+   * - Resets visibleCount so the user sees the list from the top (consistent UX).
+   */
+  function handleReviewSubmitted({ updatedStats, reviews: freshReviews } = {}) {
+    // Update faculty score stats immediately from the already-computed result
+    if (updatedStats) {
+      setFaculty((prev) => ({ ...prev, ...updatedStats }));
+    }
+
+    if (freshReviews) {
+      setReviews(freshReviews);
+      setVisibleCount(REVIEWS_INITIAL);
+      return;
+    }
+
+    // Fallback: Re-fetch reviews so the new entry is visible and ordering is authoritative
+    setRefreshingReviews(true);
+    ReviewsRepository.getReviewsByFaculty(campusSlug, id)
+      .then((fresh) => {
+        setReviews(fresh);
+        setVisibleCount(REVIEWS_INITIAL);
+      })
+      .catch((err) => {
+        console.error("Failed to refresh reviews after submission:", err);
+      })
+      .finally(() => {
+        setRefreshingReviews(false);
+      });
+  }
 
   const visibleReviews = reviews.slice(0, visibleCount);
   const hasMore = visibleCount < reviews.length;
@@ -85,28 +123,32 @@ export default function FacultyDetail() {
     setVisibleCount((prev) => Math.min(prev + REVIEWS_PER_PAGE, reviews.length));
   }
   const remainingCount = reviews.length - visibleCount;
-  const nextBatch = Math.min(REVIEWS_PER_PAGE, remainingCount);
 
-  if (loading)
-    return (
-      <div className="p-10 text-gray-700 dark:text-gray-300">
-        Loading...
-      </div>
-    );
-
-  if (!validCampus)
+  if (!validCampus) {
     return (
       <div className="p-10 text-red-500 dark:text-red-400">
         Campus not found.
       </div>
     );
+  }
 
-  if (!faculty)
+  if (loading) {
+    return (
+      <div className="p-10 text-gray-700 dark:text-gray-300">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!faculty) {
     return (
       <div className="p-10 text-red-500 dark:text-red-400">
         Faculty not found
       </div>
     );
+  }
+
+  const dualCampusOptions = getDualCampusOptions();
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-gray-900">
@@ -129,6 +171,8 @@ export default function FacultyDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4">
+              {/* Dynamic faculty photos from external CDNs/S3 */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={getFacultyPhoto(faculty)}
                 alt={faculty.name || "Faculty"}
@@ -162,7 +206,7 @@ export default function FacultyDetail() {
                     Your email is used for both Vellore and Chennai. Select your campus to rate faculty:
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {DUAL_CAMPUS_SLUGS.map((slug) => {
+                    {dualCampusOptions.map((slug) => {
                       const campus = getCampusBySlug(slug);
                       return (
                         <button
@@ -189,7 +233,11 @@ export default function FacultyDetail() {
                   </p>
                 </div>
               ) : (
-                <ReviewForm campusSlug={campusSlug} facultyId={id} />
+                <ReviewForm
+                  campusSlug={campusSlug}
+                  facultyId={id}
+                  onReviewSubmitted={handleReviewSubmitted}
+                />
               )}
             </div>
           </div>
@@ -221,7 +269,13 @@ export default function FacultyDetail() {
                 Student Reviews
               </h3>
 
-              {reviews.length === 0 && (
+              {refreshingReviews && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                  Updating reviews…
+                </p>
+              )}
+
+              {!refreshingReviews && reviews.length === 0 && (
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
                   No reviews yet.
                 </p>
@@ -230,7 +284,7 @@ export default function FacultyDetail() {
               <div className="space-y-4">
                 {visibleReviews.map((r, i) => (
                   <div
-                    key={i}
+                    key={r.id || i}
                     className="bg-white dark:bg-gray-800 rounded-xl shadow p-4"
                   >
                     <div className="flex items-center gap-2 mb-2">
@@ -311,9 +365,4 @@ function Metric({ icon: Icon, value }) {
       {value}
     </span>
   );
-}
-
-function formatCount(num) {
-  if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
-  return num;
 }

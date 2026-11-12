@@ -1,25 +1,184 @@
 rules_version = '2';
+
+// ===============================================================
+// Assumed Data Models & Schema Documentation
+// ===============================================================
+//
+// 1. User Profiles Collection: /users/{userId}
+//    - Document ID: userId (matches Firebase Auth UID)
+//    - Fields:
+//      * campusSlug: string (required, allowed: ['vit-ap', 'vit-v', 'vit-c', 'vit-b'])
+//    - Identity & Domain Mapping:
+//      * @vitstudent.ac.in -> campusSlug in ['vit-v', 'vit-c']
+//      * @vitapstudent.ac.in -> campusSlug == 'vit-ap'
+//      * @vitbhopal.ac.in -> campusSlug == 'vit-b'
+//    - Allowed keys: ['campusSlug'] strictly.
+//
+// 2. Faculties Collection: /campuses/{campusSlug}/faculties/{facultyId}
+//    - Document ID: facultyId (faculty identifier)
+//    - Fields: Managed directory (name, department, email, rating stats).
+//    - Access: Public read for valid campuses. Client creation/update/deletion denied.
+//
+// 3. Reviews Subcollection: /campuses/{campusSlug}/faculties/{facultyId}/reviews/{userId}
+//    - Document ID: userId (matches Firebase Auth UID)
+//    - Fields:
+//      * userId: string (required, immutable, must equal request.auth.uid)
+//      * user: string (optional, max 50 chars, e.g. "Anonymous User")
+//      * attendance: number (required, 1.0 - 5.0)
+//      * correction: number (required, 1.0 - 5.0)
+//      * teaching: number (required, 1.0 - 5.0)
+//      * approachability: number (required, 1.0 - 5.0)
+//      * overall: number (required, 1.0 - 5.0)
+//      * text: string (required, min 10 chars, max 1000 chars)
+//      * updatedAt: timestamp (optional)
+//    - Required keys: ['userId', 'attendance', 'correction', 'teaching', 'approachability', 'overall', 'text']
+//    - Allowed keys: ['userId', 'user', 'attendance', 'correction', 'teaching', 'approachability', 'overall', 'text', 'updatedAt']
+// ===============================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // User profile (campus selection for Vellore/Chennai shared email)
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Check if the request is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // Faculty list and faculty docs under each campus
+    // Check if the authenticated user is the resource owner by UID
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Validate recognized campus slugs
+    function isValidCampus(campusSlug) {
+      return campusSlug in ['vit-ap', 'vit-v', 'vit-c', 'vit-b'];
+    }
+
+    // Verify VIT student email domains from authenticated token
+    function hasVitStudentEmail() {
+      return isAuthenticated() &&
+        'email' in request.auth.token &&
+        request.auth.token.email is string &&
+        request.auth.token.email.matches('.*@vitstudent[.]ac[.]in$');
+    }
+
+    function hasVitApEmail() {
+      return isAuthenticated() &&
+        'email' in request.auth.token &&
+        request.auth.token.email is string &&
+        request.auth.token.email.matches('.*@vitapstudent[.]ac[.]in$');
+    }
+
+    function hasVitBhopalEmail() {
+      return isAuthenticated() &&
+        'email' in request.auth.token &&
+        request.auth.token.email is string &&
+        request.auth.token.email.matches('.*@vitbhopal[.]ac[.]in$');
+    }
+
+    // Verify that the user has verified rights to review faculty at this campus
+    function isAuthorizedForCampus(campusSlug) {
+      return (
+        (hasVitApEmail() && campusSlug == 'vit-ap') ||
+        (hasVitBhopalEmail() && campusSlug == 'vit-b') ||
+        (
+          hasVitStudentEmail() &&
+          campusSlug in ['vit-v', 'vit-c'] &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campusSlug == campusSlug
+        )
+      );
+    }
+
+    // ===============================================================
+    // Domain Validators (Used for both Create and Update)
+    // ===============================================================
+
+    // Validator for User Profile documents (/users/{userId})
+    function isValidUserProfile(data) {
+      return data.keys().hasOnly(['campusSlug']) &&
+        ('campusSlug' in data) &&
+        data.campusSlug is string &&
+        isValidCampus(data.campusSlug) &&
+        (
+          (hasVitStudentEmail() && data.campusSlug in ['vit-v', 'vit-c']) ||
+          (hasVitApEmail() && data.campusSlug == 'vit-ap') ||
+          (hasVitBhopalEmail() && data.campusSlug == 'vit-b')
+        );
+    }
+
+    // Validator for Review documents (/campuses/{slug}/faculties/{id}/reviews/{uid})
+    function isValidReview(data) {
+      return data.keys().hasAll(['userId', 'attendance', 'correction', 'teaching', 'approachability', 'overall', 'text']) &&
+        data.keys().hasOnly(['userId', 'user', 'attendance', 'correction', 'teaching', 'approachability', 'overall', 'text', 'updatedAt']) &&
+        data.userId is string &&
+        data.userId == request.auth.uid &&
+        (!('user' in data) || (data.user is string && data.user.size() <= 50)) &&
+        data.attendance is number && data.attendance >= 1 && data.attendance <= 5 &&
+        data.correction is number && data.correction >= 1 && data.correction <= 5 &&
+        data.teaching is number && data.teaching >= 1 && data.teaching <= 5 &&
+        data.approachability is number && data.approachability >= 1 && data.approachability <= 5 &&
+        data.overall is number && data.overall >= 1.0 && data.overall <= 5.0 &&
+        data.text is string && data.text.size() >= 10 && data.text.size() <= 1000 &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    // ===============================================================
+    // Collection Match Rules
+    // ===============================================================
+
+    // User profile documents (stores campus selection for Vellore/Chennai)
+    match /users/{userId} {
+      // Users can only read their own profile
+      allow read: if isOwner(userId);
+
+      // Users can create and update their profile with strict validation
+      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow update: if isOwner(userId) && isValidUserProfile(request.resource.data);
+
+      // User profile deletion is disallowed
+      allow delete: if false;
+    }
+
+    // Faculty directory under each campus
     match /campuses/{campusSlug}/faculties/{facultyId} {
-      allow read: if true;
+      // Public read restricted to valid campuses
+      allow read: if isValidCampus(campusSlug);
+
+      // Client direct creation, update, and deletion are denied
       allow create: if false;
-      allow update: if request.auth != null;
+      allow update: if false;
       allow delete: if false;
 
-      // Reviews: anyone can read; signed-in users can write their own
+      // Faculty reviews subcollection
       match /reviews/{userId} {
-        allow read: if true;
-        allow create, update: if request.auth != null && request.auth.uid == userId;
+        // Public read restricted to valid campuses
+        allow read: if isValidCampus(campusSlug);
+
+        // Authenticated users can create reviews for their assigned campus
+        allow create: if isOwner(userId) &&
+          isAuthorizedForCampus(campusSlug) &&
+          isValidReview(request.resource.data);
+
+        // Authenticated users can update their own reviews with immutable userId
+        allow update: if isOwner(userId) &&
+          isAuthorizedForCampus(campusSlug) &&
+          isValidReview(request.resource.data) &&
+          request.resource.data.userId == resource.data.userId;
+
+        // Review deletion is disallowed
         allow delete: if false;
       }
+    }
+
+    // ===============================================================
+    // Default Deny Rule
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

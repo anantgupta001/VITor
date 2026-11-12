@@ -10,6 +10,7 @@
 .env.local
 .env.production
 .env.development
+.env.e2e
 
 # firebase / admin keys
 serviceAccountKey.json
@@ -19,6 +20,8 @@ scripts/admin/serviceAccountKey.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+firebase-debug.log*
+firestore-debug.log*
 
 # OS
 .DS_Store
@@ -27,3 +30,7 @@ Thumbs.db
 # editor
 .vscode
 .idea
+
+# test results
+/test-results
+/playwright-report

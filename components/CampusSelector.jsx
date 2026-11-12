@@ -1,10 +1,10 @@
-"use client";
-
 import Link from "next/link";
-import { CAMPUSES } from "@/lib/campus-config";
+import { CAMPUSES } from "@/lib/campus";
 import { GraduationCap, MapPin } from "lucide-react";
 
 export default function CampusSelector() {
+  const campuses = CAMPUSES;
+
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
@@ -18,7 +18,7 @@ export default function CampusSelector() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          {CAMPUSES.map((campus) => (
+          {campuses.map((campus) => (
             <Link
               key={campus.slug}
               href={`/${campus.slug}`}

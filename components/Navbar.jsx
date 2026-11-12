@@ -5,8 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LoginButton from "@/components/LoginButton";
 import ThemeToggle from "@/components/ThemeToggle";
-import { useAuth } from "@/app/context/auth-context";
-import { getCampusBySlug, CAMPUSES, isValidCampus } from "@/lib/campus-config";
+import { useAuth } from "@/context/auth-context";
+import { CAMPUSES, getCampusBySlug, isValidCampus } from "@/lib/campus";
 import { LogOut, ChevronDown, MapPin } from "lucide-react";
 
 export default function Navbar() {
@@ -17,13 +17,16 @@ export default function Navbar() {
 
   const segment = pathname?.split("/")[1];
   const currentCampus = segment && isValidCampus(segment) ? getCampusBySlug(segment) : null;
+  const campuses = CAMPUSES;
 
   useEffect(() => {
-    function close(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setCampusOpen(false);
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setCampusOpen(false);
+      }
     }
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
   return (
@@ -66,11 +69,15 @@ export default function Navbar() {
                   >
                     Choose campus
                   </Link>
-                  {CAMPUSES.map((c) => (
+                  {campuses.map((c) => (
                     <Link
                       key={c.slug}
                       href={`/${c.slug}`}
-                      className={`block px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-gray-700 ${c.slug === segment ? "font-medium text-slate-900 dark:text-gray-100" : "text-gray-600 dark:text-gray-400"}`}
+                      className={`block px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-gray-700 ${
+                        c.slug === segment
+                          ? "font-medium text-slate-900 dark:text-gray-100"
+                          : "text-gray-600 dark:text-gray-400"
+                      }`}
                       onClick={() => setCampusOpen(false)}
                     >
                       <span className="sm:hidden">{c.shortLabel ?? c.label}</span>
