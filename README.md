@@ -1,218 +1,185 @@
 # 🎓 VITor — Faculty Rating Platform for VIT
 
-**VITor** is a **student-driven faculty rating platform** for **VIT students** across **Vellore, Chennai, Bhopal, and AP** campuses.  
-Students **anonymously rate and review faculty** on attendance, correction, teaching, and approachability — helping peers make informed academic decisions.
+**VITor** is a student-driven faculty rating platform for students across VIT Vellore, Chennai, Bhopal, and AP campuses.
 
----
-
-## 📑 Table of Contents
-
-- [✨ Features](#-features)
-- [🧠 Evaluation Criteria](#-evaluation-criteria-student-friendly)
-- [🔒 Privacy & Authenticity](#-privacy--authenticity)
-- [🛠 Tech Stack](#-tech-stack)
-- [📁 Project Structure](#-project-structure)
-- [🚀 Getting Started](#-getting-started-local-setup)
-- [🌍 Deployment](#-deployment-vercel)
-- [🤝 Contributing](#-contributing)
-- [📜 Disclaimer](#-disclaimer)
-- [👨‍💻 Author](#-author)
-- [⭐ Support](#-support-the-project)
+Students can anonymously rate and review faculty members based on attendance, correction, teaching, and approachability — helping peers make informed academic decisions.
 
 ---
 
 ## ✨ Features
 
-- 🏫 **Multi-campus support** — Vellore, Chennai, Bhopal, AP; choose campus and view faculty per campus  
-- 🔐 **College-only authentication** using official VIT student email IDs  
-- 🕵️ **Anonymous reviews** — student identities are never revealed  
-- ⭐ **Multi-criteria rating system**
-  - Attendance
-  - Correction
-  - Teaching
-  - Approachability
-- 📊 **Automatic average ratings** and total review count per faculty  
-- 🔎 **Search with pagination** for smooth navigation  
-- 🌙 **System-aware Dark / Light mode** with manual toggle  
-- 📱 **Fully responsive UI** (mobile & desktop; short campus names on small screens)  
-- 🔥 **Real-time updates** powered by Firebase Firestore  
-- 📄 **Reviews in batches** — 3 reviews initially, then “Show more” to load 3 at a time  
-- 🚀 **Production-ready Next.js application**
+- 🏫 Multi-campus support — Vellore, Chennai, Bhopal, and AP.
+- 🔐 College email authentication using Google Sign-In.
+- 🕵️ Anonymous faculty reviews.
+- ⭐ Four-criteria faculty rating system.
+- 📊 Faculty average ratings and review counts.
+- 🔎 Faculty search and discovery.
+- 📄 Paginated reviews.
+- 🌙 Dark and light themes.
+- 📱 Responsive design for mobile and desktop.
 
 ---
 
-## 🧠 Evaluation Criteria (Student-Friendly)
+## 🧠 Evaluation Criteria
 
-Each faculty is evaluated from a **student’s perspective**, focusing on fairness, clarity, and approachability.
-
-### 📅 Attendance
-- Flexible and student-friendly attendance policies  
-- Understands genuine student concerns  
-- Prioritizes learning over strict rules  
-
-### 📝 Correction
-- Fair and unbiased evaluation  
-- Timely correction of answer sheets  
-- Clear justification for marks  
-
-### 🎓 Teaching
-- Clear and structured explanation of concepts  
-- Comfortable teaching pace  
-- Focus on understanding rather than rote learning  
-
-### 🤝 Approachability
-- Easily approachable for doubts and guidance  
-- Friendly and respectful interaction  
-- Willing to help beyond classroom hours  
-
----
-
-## 🔒 Privacy & Authenticity
-
-- ✅ **100% anonymous reviews**
-- ✅ Only **official college email IDs** can submit reviews
-- ✅ **One review per user per faculty** (users may update their review)
-- ✅ Prevents spam and ensures authenticity of feedback
+| Criteria | What Students Evaluate |
+|---|---|
+| 📅 Attendance | Attendance flexibility, fairness, and understanding of genuine concerns. |
+| 📝 Correction | Fair evaluation, timely correction, and clarity of marking. |
+| 🎓 Teaching | Concept clarity, teaching pace, and explanation quality. |
+| 🤝 Approachability | Accessibility, guidance, and willingness to resolve doubts. |
 
 ---
 
 ## 🛠 Tech Stack
 
-- **Frontend:** Next.js (App Router), Tailwind CSS  
-- **Backend:** Firebase Firestore  
-- **Authentication:** Firebase Authentication (Google Sign-In)  
-- **Theming:** System-aware Dark / Light mode  
-- **Deployment:** Vercel  
+| Layer | Technologies |
+|---|---|
+| Frontend | Next.js 16, React 19 |
+| Styling & UI | Tailwind CSS, Material UI, Lucide |
+| Authentication | Firebase Authentication |
+| Database | Cloud Firestore |
+| Architecture | Service and Repository Pattern |
+| Hosting | Vercel |
 
 ---
 
-## 📁 Project Structure
+## 🏗 Architecture
 
-~~~text
-app/
- ├─ page.js                    # Home route (campus selector)
- ├─ layout.js                  # Root layout
- ├─ providers.js               # Theme + auth providers
- ├─ [campus]/
- │   ├─ page.jsx                # Route only → CampusHome
- │   └─ [id]/page.jsx           # Route only → FacultyDetail
- ├─ context/
- │   └─ auth-context.js         # Auth state & useAuth
-
-components/
- ├─ CampusSelector.jsx          # Campus picker (home)
- ├─ CampusHome.jsx              # Campus faculty list (used by [campus]/page)
- ├─ FacultyDetail.jsx           # Single faculty profile (used by [campus]/[id]/page)
- ├─ Navbar.jsx, Footer.jsx
- ├─ FacultyCard.jsx, ReviewForm.jsx
- ├─ InfoCard.jsx, FeatureItem.jsx
- ├─ LoginButton.jsx, ThemeToggle.jsx
-
-lib/
- ├─ firebase-config.js         # Firebase app, auth, Firestore
- ├─ campus-config.js           # Campus slugs & helpers
- ├─ faculty-helpers.js         # e.g. getFacultyPhoto
- ├─ campus-home-content.js    # Feature bullets & criteria copy
-~~~
+| Layer | Responsibility |
+|---|---|
+| Presentation | Next.js pages, React components, and context providers. |
+| Service | Business logic, input validation, and application workflows. |
+| Repository | Firestore data access and database operations. |
+| Infrastructure | Firebase Authentication, Firestore, and security rules. |
 
 ---
 
-## 🚀 Getting Started (Local Setup)
+## 🔒 Privacy & Security
 
-### 1️⃣ Clone the Repository
+- Reviews are publicly anonymous; Firebase UID is used internally for ownership validation.
+- Only eligible VIT student accounts can submit reviews.
+- One review per user per faculty, with update support.
+- Firestore security rules enforce ownership, campus authorization, and data validation.
+- Strict validation for ratings, review text, and user profiles.
+- Default-deny Firestore access policy and HTTP security headers.
 
-~~~bash
+---
+
+## 🧪 Testing
+
+VITor includes automated testing across multiple layers.
+
+| Testing Layer | Framework | Tests |
+|---|---|---:|
+| Unit | Node.js Test Runner | 87 |
+| Integration | Firebase Emulator | 37 |
+| Component | Vitest + Testing Library | 72 |
+| End-to-End | Playwright | 25 |
+| Security | Firebase Rules Unit Testing | 37 |
+| **Total** | | **258** |
+
+### Run Tests
+
+```bash
+npm test
+npm run test:integration
+npm run test:components
+npm run test:e2e
+npm run test:security
+```
+
+### Additional Checks
+
+```bash
+npm run lint
+npm run build
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js and npm
+- A Firebase project with Authentication and Cloud Firestore enabled
+- Google Sign-In configured in Firebase
+
+### 1. Clone the Repository
+
+```bash
 git clone https://github.com/anantgupta001/vitor.git
 cd vitor
-~~~
+```
 
-### 2️⃣ Install Dependencies
+### 2. Install Dependencies
 
-~~~bash
+```bash
 npm install
-~~~
+```
 
-### 3️⃣ Setup Environment Variables
+### 3. Configure Environment Variables
 
-Create a **`.env.local`** file in the project root:
+Create `.env.local` in the project root:
 
-~~~env
-NEXT_PUBLIC_FIREBASE_API_KEY=your_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_bucket
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-~~~
+```
 
-#### ⚠️ Important Notes
-- Never commit **`.env.local`** to GitHub  
-- Ensure **`.env.local`** is included in **`.gitignore`**
+Never commit `.env.local` or private credentials.
 
-### 4️⃣ Run the Project Locally
+### 4. Run Locally
 
-~~~bash
+```bash
 npm run dev
-~~~
+```
 
-Open your browser and visit:
-
-~~~text
-http://localhost:3000
-~~~
+Visit [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 🌍 Deployment (Vercel)
+## 🌍 Deployment
 
-This project is **Vercel-ready**.
+VITor is configured for deployment on [Vercel](https://vercel.com).
 
-### Deployment Steps
+1. Import the GitHub repository into Vercel.
+2. Add the required Firebase environment variables.
+3. Deploy the application.
+4. Ensure Firebase Authentication domains and Firestore security rules are configured for production.
 
-- Push the repository to GitHub  
-- Visit **https://vercel.com**  
-- Import the GitHub repository  
-- Add the same environment variables under  
-  **Vercel → Project Settings → Environment Variables**  
-- Click **Deploy**
+To deploy Firestore rules:
 
-🎉 Your application will be live.
+```bash
+firebase deploy --only firestore:rules --project YOUR_FIREBASE_PROJECT_ID
+```
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome and appreciated.
+Contributions are welcome!
 
-### Steps to Contribute
+1. Fork the repository.
+2. Create a feature branch.
+3. Make your changes and add relevant tests.
+4. Commit and push your changes.
+5. Open a Pull Request.
 
-~~~bash
-# Fork the repository
-# Create a new branch
-git checkout -b feature/your-feature
-
-# Make your changes
-git commit -m "feat: short description of your change"
-
-# Push and open a Pull Request
-~~~
-
-### Contribution Guidelines
-
-- Keep contributions student-focused  
-- Maintain clean and readable code  
-- Follow the existing project structure  
-- ❌ Do not commit secrets or credentials  
+Please follow the existing architecture, maintain readable code, and never commit secrets or credentials.
 
 ---
 
 ## 📜 Disclaimer
 
-VITor is an **independent student initiative**  
-and is **NOT officially affiliated with VIT or any of its campuses**.
+VITor is an independent student initiative and is **not officially affiliated with Vellore Institute of Technology (VIT) or any of its campuses**.
 
-All reviews reflect personal student opinions and experiences.  
-The platform aims to promote transparency and help students make informed academic decisions.
+All reviews reflect individual student opinions and experiences.
 
 ---
 
@@ -220,17 +187,8 @@ The platform aims to promote transparency and help students make informed academ
 
 **Anant Gupta**
 
-- GitHub: https://github.com/anantgupta001  
-- LinkedIn: https://www.linkedin.com/in/anantgupta7628/
+[GitHub](https://github.com/anantgupta001) · [LinkedIn](https://www.linkedin.com/in/anantgupta7628/)
 
----
+If you find VITor useful, consider giving the repository a ⭐.
 
-## ⭐ Support the Project
-
-If you find this project useful:
-
-- ⭐ Star the repository on GitHub  
-- 📢 Share it with your peers  
-- 💡 Suggest improvements or contribute  
-
-Built with ❤️ by students, for students.
+**Built with ❤️ by students, for students.**
