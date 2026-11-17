@@ -22,7 +22,7 @@ vi.mock("@/repositories/faculty.repository", () => ({
 
 vi.mock("@/repositories/reviews.repository", () => ({
   ReviewsRepository: {
-    getReviewsByFaculty: vi.fn(),
+    getPublicReviews: vi.fn(),
   },
 }));
 
@@ -122,7 +122,7 @@ describe("FacultyDetail Component", () => {
     });
 
     FacultyRepository.getFacultyById.mockResolvedValue(sampleFaculty);
-    ReviewsRepository.getReviewsByFaculty.mockResolvedValue(sampleReviews);
+    ReviewsRepository.getPublicReviews.mockResolvedValue(sampleReviews);
 
     vi.spyOn(AuthContextModule, "useAuth").mockReturnValue({
       user: { uid: "user-1", email: "student@vitstudent.ac.in" },
@@ -134,10 +134,11 @@ describe("FacultyDetail Component", () => {
   describe("Loading and Error states", () => {
     it("renders loading state while faculty data is fetching", () => {
       FacultyRepository.getFacultyById.mockReturnValueOnce(new Promise(() => {}));
-      ReviewsRepository.getReviewsByFaculty.mockReturnValueOnce(new Promise(() => {}));
+      ReviewsRepository.getPublicReviews.mockReturnValueOnce(new Promise(() => {}));
 
       render(<FacultyDetail />);
       expect(screen.getByText("Loading...")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("Loading...");
     });
 
     it("renders 'Campus not found.' when campus slug is invalid", async () => {
@@ -152,10 +153,11 @@ describe("FacultyDetail Component", () => {
 
     it("renders 'Faculty not found' when faculty document does not exist", async () => {
       FacultyRepository.getFacultyById.mockResolvedValueOnce(null);
-      ReviewsRepository.getReviewsByFaculty.mockResolvedValueOnce([]);
+      ReviewsRepository.getPublicReviews.mockResolvedValueOnce([]);
 
       render(<FacultyDetail />);
       expect(await screen.findByText("Faculty not found")).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent("Faculty not found");
     });
   });
 
@@ -224,7 +226,7 @@ describe("FacultyDetail Component", () => {
     });
 
     it("displays 'No reviews yet.' when reviews array is empty", async () => {
-      ReviewsRepository.getReviewsByFaculty.mockResolvedValueOnce([]);
+      ReviewsRepository.getPublicReviews.mockResolvedValueOnce([]);
 
       render(<FacultyDetail />);
 
@@ -240,7 +242,7 @@ describe("FacultyDetail Component", () => {
         { id: "r4", text: "Review 4 text", overall: 5, attendance: 5, correction: 5, teaching: 5, approachability: 5 },
       ];
 
-      ReviewsRepository.getReviewsByFaculty.mockResolvedValueOnce(fourReviews);
+      ReviewsRepository.getPublicReviews.mockResolvedValueOnce(fourReviews);
 
       render(<FacultyDetail />);
 

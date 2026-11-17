@@ -1,41 +1,41 @@
 /**
- * Trusted Review Mutations API for VITor.
+ * Trusted Review API for VITor.
  * Endpoints:
+ * - GET: Public list of visible (ACTIVE) reviews for a faculty member. No author identifiers.
  * - POST: Submit or update a review.
  * - PUT: Edit an existing review.
  * - DELETE: Delete (soft-delete) an existing review.
  */
 
 import { authenticateRequest, verifyAppCheck, authorizeFacultyAccess } from "../../../lib/server/campus-auth.js";
-import { validateReviewSubmissionPayload } from "../../../lib/server/validation.js";
+import {
+  validateReviewSubmissionPayload,
+  isSafeDocumentId,
+  ValidationError,
+} from "../../../lib/server/validation.js";
 import { ReviewsTransactionCoordinator } from "../../../lib/server/reviews-transaction.js";
+import { listPublicReviews } from "../../../lib/server/public-reviews.js";
+import { extractIdempotencyKey, handleApiError } from "../../../lib/server/http.js";
+import { isValidCampus } from "../../../lib/campus.js";
 
-function extractIdempotencyKey(req) {
-  return (
-    req.headers.get("idempotency-key") ||
-    req.headers.get("x-idempotency-key") ||
-    null
-  );
-}
+export async function GET(req) {
+  try {
+    const url = new URL(req.url);
+    const campusSlug = url.searchParams.get("campusSlug");
+    const facultyId = url.searchParams.get("facultyId");
 
-function handleError(err) {
-  const statusCode = err.statusCode || (err.name === "ValidationError" ? 400 : 500);
-  const responsePayload = {
-    error: err.message || "An unexpected error occurred.",
-    code: err.code || "INTERNAL_SERVER_ERROR",
-  };
+    if (!isValidCampus(campusSlug)) {
+      throw new ValidationError("Valid 'campusSlug' is required.");
+    }
+    if (!isSafeDocumentId(facultyId)) {
+      throw new ValidationError("Valid 'facultyId' is required.");
+    }
 
-  if (err.currentVersion !== undefined) {
-    responsePayload.currentVersion = err.currentVersion;
+    const reviews = await listPublicReviews(campusSlug, facultyId);
+    return Response.json({ reviews }, { headers: { "Cache-Control": "no-store" } });
+  } catch (err) {
+    return handleApiError(err);
   }
-
-  const headers = {};
-  if (err.retryAfterSeconds) {
-    headers["Retry-After"] = String(err.retryAfterSeconds);
-    responsePayload.retryAfter = err.retryAfterSeconds;
-  }
-
-  return Response.json(responsePayload, { status: statusCode, headers });
 }
 
 export async function POST(req) {
@@ -75,7 +75,7 @@ export async function POST(req) {
     const statusCode = result.statusCode || (result.isNew ? 201 : 200);
     return Response.json(result, { status: statusCode });
   } catch (err) {
-    return handleError(err);
+    return handleApiError(err);
   }
 }
 
@@ -120,6 +120,6 @@ export async function DELETE(req) {
 
     return Response.json(result, { status: 200 });
   } catch (err) {
-    return handleError(err);
+    return handleApiError(err);
   }
 }

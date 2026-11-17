@@ -81,6 +81,13 @@ describe("CampusHome Component", () => {
 
       render(<CampusHome />);
       expect(screen.getByText("Loading faculty members...")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("Loading faculty members...");
+    });
+
+    it("associates the search input with an accessible label", () => {
+      FacultyRepository.getFaculties.mockReturnValueOnce(new Promise(() => {}));
+      render(<CampusHome />);
+      expect(screen.getByLabelText("Search by faculty name or department")).toBeInTheDocument();
     });
 
     it("renders error banner when FacultyRepository.getFaculties fails", async () => {

@@ -5,6 +5,7 @@ import { POST as restorePost } from "../app/api/reviews/restore/route.js";
 import { POST as moderatePost } from "../app/api/reviews/moderate/route.js";
 import { adminAuth, adminDb, adminAppCheck } from "../lib/firebase/admin.js";
 import { ReviewsTransactionCoordinator } from "../lib/server/reviews-transaction.js";
+import { RateLimitExceededError } from "../lib/server/rate-limit.js";
 
 function makeMockRequest({ method = "POST", headers = {}, body = null, url = "http://localhost:3000/api/reviews" } = {}) {
   const headerMap = new Map();
@@ -183,11 +184,8 @@ test("API Routes - POST /api/reviews propagates 429 with Retry-After header on r
   }));
 
   t.mock.method(ReviewsTransactionCoordinator, "submitOrUpdateReview", async () => {
-    const err = new Error("Rate limit exceeded: Maximum 5 reviews per 24 hours.");
-    err.statusCode = 429;
-    err.code = "RATE_LIMIT_EXCEEDED";
-    err.retryAfterSeconds = 7200; // 2 hours
-    throw err;
+    // Use the real error class the server throws (handleApiError only trusts our own errors)
+    throw new RateLimitExceededError("Rate limit exceeded: Maximum 5 reviews per 24 hours.", 7200); // 2 hours
   });
 
   const req = makeMockRequest({

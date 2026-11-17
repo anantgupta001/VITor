@@ -14,7 +14,31 @@ import { db } from "../lib/firebase/client.js";
 
 export const ReviewsRepository = {
   /**
-   * Fetch all reviews for a faculty member.
+   * Fetch the publicly visible reviews for a faculty member (what the UI must use).
+   *
+   * Reads go through the trusted `GET /api/reviews` endpoint, which returns only
+   * ACTIVE reviews and strips author identifiers. Production Firestore rules deny
+   * direct client reads of the `reviews` collection.
+   */
+  async getPublicReviews(campusSlug, facultyId) {
+    if (!campusSlug || !facultyId) return [];
+    const params = new URLSearchParams({ campusSlug, facultyId });
+    const res = await fetch(`/api/reviews?${params.toString()}`, { cache: "no-store" });
+    if (!res.ok) {
+      const err = new Error("Failed to load reviews.");
+      err.statusCode = res.status;
+      throw err;
+    }
+    const data = await res.json();
+    return Array.isArray(data?.reviews) ? data.reviews : [];
+  },
+
+  /**
+   * Fetch all reviews for a faculty member directly from Firestore, in every status.
+   *
+   * NOT for UI use: production rules deny this read. Retained only for the
+   * non-browser fallback path in ReviewsService and the emulator integration tests
+   * (which run with permissive test rules). Use `getPublicReviews` in the app.
    */
   async getReviewsByFaculty(campusSlug, facultyId) {
     if (!campusSlug || !facultyId) return [];

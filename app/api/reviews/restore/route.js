@@ -1,25 +1,21 @@
 /**
  * Review Restoration API for VITor.
  * POST /api/reviews/restore
+ *
+ * Lets an author undo their OWN deletion only. Reviews in a moderator-set status
+ * (FLAGGED / HIDDEN / QUARANTINED) can never be restored through this endpoint.
  */
 
 import { authenticateRequest, verifyAppCheck, authorizeFacultyAccess } from "../../../../lib/server/campus-auth.js";
 import { ReviewsTransactionCoordinator } from "../../../../lib/server/reviews-transaction.js";
-
-function extractIdempotencyKey(req) {
-  return (
-    req.headers.get("idempotency-key") ||
-    req.headers.get("x-idempotency-key") ||
-    null
-  );
-}
+import { extractIdempotencyKey, handleApiError, readJsonObject } from "../../../../lib/server/http.js";
 
 export async function POST(req) {
   try {
     const decodedToken = await authenticateRequest(req);
     await verifyAppCheck(req);
 
-    const body = await req.json().catch(() => ({}));
+    const body = (await readJsonObject(req)) || {};
     const { campusSlug, facultyId } = body;
 
     if (!campusSlug || !facultyId) {
@@ -41,10 +37,6 @@ export async function POST(req) {
 
     return Response.json(result, { status: 200 });
   } catch (err) {
-    const statusCode = err.statusCode || 500;
-    return Response.json(
-      { error: err.message || "Failed to restore review.", code: err.code || "INTERNAL_ERROR" },
-      { status: statusCode }
-    );
+    return handleApiError(err);
   }
 }

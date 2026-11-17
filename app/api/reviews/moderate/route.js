@@ -7,13 +7,13 @@
 import { authenticateRequest, verifyAppCheck, isAuthorizedModerator } from "../../../../lib/server/campus-auth.js";
 import { ReviewsTransactionCoordinator } from "../../../../lib/server/reviews-transaction.js";
 import { isValidCampus } from "../../../../lib/campus.js";
+import { isSafeDocumentId } from "../../../../lib/server/validation.js";
+import { extractIdempotencyKey, handleApiError, readJsonObject } from "../../../../lib/server/http.js";
 
-function extractIdempotencyKey(req) {
-  return (
-    req.headers.get("idempotency-key") ||
-    req.headers.get("x-idempotency-key") ||
-    null
-  );
+const MAX_REASON_LENGTH = 500;
+
+function badRequest(error, code) {
+  return Response.json({ error, code }, { status: 400 });
 }
 
 export async function POST(req) {
@@ -28,17 +28,28 @@ export async function POST(req) {
       );
     }
 
-    const body = await req.json().catch(() => ({}));
+    const body = (await readJsonObject(req)) || {};
     const { campusSlug, facultyId, targetUserId, action, reason } = body;
 
     if (!campusSlug || !isValidCampus(campusSlug)) {
-      return Response.json({ error: "Valid campusSlug is required.", code: "INVALID_CAMPUS" }, { status: 400 });
+      return badRequest("Valid campusSlug is required.", "INVALID_CAMPUS");
     }
     if (!facultyId || !targetUserId || !action) {
-      return Response.json(
-        { error: "facultyId, targetUserId, and action are required.", code: "MISSING_PARAMETERS" },
-        { status: 400 }
-      );
+      return badRequest("facultyId, targetUserId, and action are required.", "MISSING_PARAMETERS");
+    }
+    if (!isSafeDocumentId(facultyId) || !isSafeDocumentId(targetUserId)) {
+      return badRequest("facultyId and targetUserId must be valid identifiers.", "INVALID_PARAMETERS");
+    }
+    if (typeof action !== "string") {
+      return badRequest("action must be a string.", "INVALID_PARAMETERS");
+    }
+    if (reason !== undefined && reason !== null) {
+      if (typeof reason !== "string" || reason.length > MAX_REASON_LENGTH) {
+        return badRequest(
+          `reason must be a string of at most ${MAX_REASON_LENGTH} characters.`,
+          "INVALID_PARAMETERS"
+        );
+      }
     }
 
     const idempotencyKey = extractIdempotencyKey(req);
@@ -53,10 +64,6 @@ export async function POST(req) {
 
     return Response.json(result, { status: 200 });
   } catch (err) {
-    const statusCode = err.statusCode || 500;
-    return Response.json(
-      { error: err.message || "Failed to moderate review.", code: err.code || "INTERNAL_ERROR" },
-      { status: statusCode }
-    );
+    return handleApiError(err);
   }
 }

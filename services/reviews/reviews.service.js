@@ -216,7 +216,7 @@ export const ReviewsService = {
     // Re-fetch all reviews to ensure full fresh list
     let allReviews = [];
     try {
-      allReviews = await ReviewsRepository.getReviewsByFaculty(campusSlug, facultyId);
+      allReviews = await ReviewsRepository.getPublicReviews(campusSlug, facultyId);
     } catch {
       // Fallback to returned review
       if (data.review) allReviews = [data.review];

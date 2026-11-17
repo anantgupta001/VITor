@@ -16,13 +16,13 @@ function StatRow({ icon: Icon, label, value }) {
   const scoreClass = getScoreColorClass(value);
   return (
     <div className="flex items-center justify-between text-sm text-gray-700 dark:text-gray-300">
-      <span className="flex items-center gap-2">
-        <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+      <dt className="flex items-center gap-2">
+        <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" />
         {label}
-      </span>
-      <span className={`font-medium ${scoreClass}`}>
+      </dt>
+      <dd className={`font-medium ${scoreClass}`}>
         {value !== null && value !== undefined ? value.toFixed(1) : "—"}
-      </span>
+      </dd>
     </div>
   );
 }
@@ -37,7 +37,7 @@ export default function FacultyCard({ faculty, campusSlug, currentPage, query })
   return (
     <Link
       href={href}
-      className="block h-full"
+      className="block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 dark:focus-visible:ring-gray-400"
     >
       <div
         className="
@@ -79,7 +79,7 @@ export default function FacultyCard({ faculty, campusSlug, currentPage, query })
           </p>
 
           {/* STATS */}
-          <div className="space-y-2 mt-auto">
+          <dl className="space-y-2 mt-auto">
             <StatRow
               icon={CalendarCheck}
               label="Attendance"
@@ -100,7 +100,7 @@ export default function FacultyCard({ faculty, campusSlug, currentPage, query })
               label="Approachability"
               value={faculty.avgApproachability}
             />
-          </div>
+          </dl>
 
           {/* FOOTER */}
           <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-sm">

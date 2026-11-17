@@ -23,8 +23,9 @@ rules_version = '2';
 // 3. Reviews Subcollection: /campuses/{campusSlug}/faculties/{facultyId}/reviews/{userId}
 //    - Document ID: userId (reviewer UID matching Firebase Auth UID)
 //    - Fields: Server-managed review record (userId, ratings, comment, status, shardId, version, timestamps, etc.)
-//    - Access: Public read for valid campuses. Direct client create/update/delete denied.
-//      All review submissions, updates, and moderation are mediated via server APIs using Admin SDK.
+//    - Access: Direct client read, create, update and delete ALL denied. Reads of ACTIVE
+//      reviews (without author UIDs) are served by GET /api/reviews; all submissions,
+//      updates, and moderation are mediated via server APIs using Admin SDK.
 //
 // 4. Shards Subcollection: /campuses/{campusSlug}/faculties/{facultyId}/shards/{shardId}
 //    - Document ID: shardId (string '0'..'4')
@@ -136,13 +137,13 @@ service cloud.firestore {
         // Client direct creation, update, and deletion are denied
         allow create, update, delete: if false;
 
-        // Faculty reviews subcollection (managed entirely by server transactions)
+        // Faculty reviews subcollection (managed entirely by server transactions).
+        // Review documents are keyed by the author's Firebase UID and carry moderation
+        // status (FLAGGED / HIDDEN / DELETED ...), so they are NEVER readable by
+        // clients. The public site reads ACTIVE reviews, with author identifiers
+        // stripped, through the trusted `GET /api/reviews` endpoint (Admin SDK).
         match /reviews/{userId} {
-          // Public read restricted to valid campuses
-          allow read: if isValidCampus(campusSlug);
-
-          // Direct client creation, update, and deletion are denied
-          allow create, update, delete: if false;
+          allow read, write: if false;
         }
 
         // Aggregate counter shards

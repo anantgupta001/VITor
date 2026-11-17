@@ -17,6 +17,18 @@ describe("FacultyCard Component", () => {
     photo: "https://example.com/suresh.jpg",
   };
 
+  it("exposes statistics as a definition list", () => {
+    const { container } = render(
+      <FacultyCard faculty={sampleFaculty} campusSlug="vit-v" currentPage={1} query="" />
+    );
+    const dl = container.querySelector("dl");
+    expect(dl).not.toBeNull();
+    expect(dl.querySelectorAll("dt")).toHaveLength(4);
+    expect(dl.querySelectorAll("dd")).toHaveLength(4);
+    expect(dl.querySelector("dt").textContent).toBe("Attendance");
+    expect(dl.querySelector("dd").textContent).toBe("4.5");
+  });
+
   it("renders faculty name, designation, department, and photo", () => {
     render(
       <FacultyCard

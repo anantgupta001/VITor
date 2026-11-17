@@ -493,3 +493,103 @@ test("ReviewsService.submitReview - repository failure when updating faculty sta
   assert.equal(getReviewsMock.mock.callCount(), 1);
   assert.equal(updateStatsMock.mock.callCount(), 1);
 });
+
+// ============================================================================
+// submitReviewApi() — the path the browser actually uses (audit F-07)
+// ============================================================================
+
+const API_USER = {
+  uid: "api-user-1",
+  email: "student@vitapstudent.ac.in",
+  getIdToken: async () => "fresh-id-token",
+};
+const API_RATINGS = { attendance: 4, correction: 4, teaching: 5, approachability: 3 };
+
+test("ReviewsService.submitReviewApi - posts to /api/reviews with bearer token, idempotency key and trimmed comment", async (t) => {
+  const fetchMock = t.mock.method(globalThis, "fetch", async () => ({
+    ok: true,
+    status: 201,
+    json: async () => ({ overall: 4, updatedStats: { reviewCount: 1 }, review: { id: "api-user-1" } }),
+  }));
+  t.mock.method(ReviewsRepository, "getPublicReviews", async () => [{ id: "opaque", comment: "x" }]);
+
+  const result = await ReviewsService.submitReviewApi({
+    campusSlug: "vit-ap",
+    facultyId: "fac-1",
+    user: API_USER,
+    userCampus: "vit-ap",
+    ratings: API_RATINGS,
+    comment: "  A thoughtful review comment.  ",
+    idempotencyKey: "retry-key-1",
+  });
+
+  const [url, options] = fetchMock.mock.calls[0].arguments;
+  assert.equal(url, "/api/reviews");
+  assert.equal(options.method, "POST");
+  assert.equal(options.headers.Authorization, "Bearer fresh-id-token");
+  assert.equal(options.headers["Idempotency-Key"], "retry-key-1");
+  const body = JSON.parse(options.body);
+  assert.equal(body.comment, "A thoughtful review comment.");
+  assert.equal(body.campusSlug, "vit-ap");
+
+  assert.equal(result.success, true);
+  assert.deepEqual(result.reviews, [{ id: "opaque", comment: "x" }]);
+  assert.deepEqual(result.updatedStats, { reviewCount: 1 });
+});
+
+test("ReviewsService.submitReviewApi - refreshes reviews through the public endpoint, never direct Firestore reads", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => ({ ok: true, status: 200, json: async () => ({ overall: 4 }) }));
+  const publicMock = t.mock.method(ReviewsRepository, "getPublicReviews", async () => []);
+  const directMock = t.mock.method(ReviewsRepository, "getReviewsByFaculty", async () => {
+    throw new Error("direct Firestore review reads are denied by production rules");
+  });
+
+  await ReviewsService.submitReviewApi({
+    campusSlug: "vit-ap", facultyId: "fac-1", user: API_USER, userCampus: "vit-ap",
+    ratings: API_RATINGS, comment: "A thoughtful review comment.",
+  });
+
+  assert.equal(publicMock.mock.callCount(), 1);
+  assert.equal(directMock.mock.callCount(), 0);
+});
+
+test("ReviewsService.submitReviewApi - surfaces server error code/status (e.g. moderated review) to the caller", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => ({
+    ok: false,
+    status: 403,
+    json: async () => ({ error: "This review has been restricted by a moderator and cannot be changed.", code: "REVIEW_MODERATED" }),
+  }));
+
+  await assert.rejects(
+    () => ReviewsService.submitReviewApi({
+      campusSlug: "vit-ap", facultyId: "fac-1", user: API_USER, userCampus: "vit-ap",
+      ratings: API_RATINGS, comment: "A thoughtful review comment.",
+    }),
+    (err) => err.statusCode === 403 && err.code === "REVIEW_MODERATED" && /restricted by a moderator/.test(err.message)
+  );
+});
+
+test("ReviewsService.submitReviewApi - falls back to the returned review when the refresh read fails", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => ({
+    ok: true, status: 201, json: async () => ({ overall: 4, review: { id: "me", comment: "mine" } }),
+  }));
+  t.mock.method(ReviewsRepository, "getPublicReviews", async () => { throw new Error("network down"); });
+
+  const result = await ReviewsService.submitReviewApi({
+    campusSlug: "vit-ap", facultyId: "fac-1", user: API_USER, userCampus: "vit-ap",
+    ratings: API_RATINGS, comment: "A thoughtful review comment.",
+  });
+  assert.deepEqual(result.reviews, [{ id: "me", comment: "mine" }]);
+});
+
+test("ReviewsService.submitReviewApi - rejects client-side validation failures without any network call", async (t) => {
+  const fetchMock = t.mock.method(globalThis, "fetch", async () => { throw new Error("must not be called"); });
+  await assert.rejects(
+    () => ReviewsService.submitReviewApi({
+      campusSlug: "vit-ap", facultyId: "fac-1", user: API_USER, userCampus: "vit-ap",
+      ratings: API_RATINGS, comment: "short",
+    }),
+    /at least/
+  );
+  assert.equal(fetchMock.mock.callCount(), 0);
+});

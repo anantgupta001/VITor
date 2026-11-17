@@ -14,7 +14,8 @@
  *    - Cross-user profile modification denial.
  *    - Profile deletion denial.
  * 7. Faculty permissions & Public Reads:
- *    - Public read allowed on valid campus faculties, reviews, and shards.
+ *    - Public read allowed on valid campus faculties and shards.
+ *    - Review documents are never client-readable (public reads go through GET /api/reviews).
  *    - Public read on invalid campus denied.
  *    - Direct client faculty creation, update, and deletion denied.
  * 8. Default deny on any undeclared root collections.
@@ -36,6 +37,8 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  collection,
+  getDocs,
 } from "firebase/firestore";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -113,6 +116,16 @@ test.beforeEach(async () => {
       comment: "Good teaching.",
       status: "ACTIVE",
     });
+    // Non-public reviews: must never be readable by clients (F-02)
+    for (const status of ["HIDDEN", "FLAGGED", "DELETED"]) {
+      const id = `${status.toLowerCase()}_review`;
+      await setDoc(doc(adminDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", id), {
+        userId: id,
+        overall: 1.0,
+        comment: `Non-public ${status} text.`,
+        status,
+      });
+    }
     await setDoc(doc(adminDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "shards", "0"), {
       shardId: "0",
       reviewCount: 1,
@@ -259,15 +272,44 @@ test("Security Rules [Profile] - profile deletion is denied", async () => {
 // 6. Public Reads & Faculty Permissions
 // ============================================================================
 
-test("Security Rules [Public Reads] - public read allowed on valid campus faculties, reviews, and shards", async () => {
+test("Security Rules [Public Reads] - public read allowed on valid campus faculties and shards", async () => {
   const unauthDb = testEnv.unauthenticatedContext().firestore();
   const facRef = doc(unauthDb, "campuses", "vit-ap", "faculties", "fac-ap-1");
-  const reviewRef = doc(unauthDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", "existing_review");
   const shardRef = doc(unauthDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "shards", "0");
 
   await assertSucceeds(getDoc(facRef));
-  await assertSucceeds(getDoc(reviewRef));
   await assertSucceeds(getDoc(shardRef));
+});
+
+// F-02 regression: review documents are keyed by the author's UID and carry moderation
+// status, so clients must never read them directly (public reads go via GET /api/reviews).
+test("Security Rules [Reviews Privacy] - unauthenticated clients cannot read any review document", async () => {
+  const unauthDb = testEnv.unauthenticatedContext().firestore();
+  for (const id of ["existing_review", "hidden_review", "flagged_review", "deleted_review"]) {
+    await assertFails(
+      getDoc(doc(unauthDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", id))
+    );
+  }
+});
+
+test("Security Rules [Reviews Privacy] - unauthenticated clients cannot list the reviews collection", async () => {
+  const unauthDb = testEnv.unauthenticatedContext().firestore();
+  await assertFails(
+    getDocs(collection(unauthDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews"))
+  );
+});
+
+test("Security Rules [Reviews Privacy] - authenticated students cannot read or list reviews, including their own", async () => {
+  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
+  await assertFails(
+    getDoc(doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_AP.uid))
+  );
+  await assertFails(
+    getDoc(doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", "hidden_review"))
+  );
+  await assertFails(
+    getDocs(collection(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews"))
+  );
 });
 
 test("Security Rules [Public Reads] - public read on invalid campus is denied", async () => {

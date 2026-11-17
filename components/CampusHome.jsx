@@ -191,7 +191,11 @@ export default function CampusHome() {
 
         <div className="mb-8 flex gap-2">
           <div className="flex-1 relative" ref={searchWrapRef}>
+            <label htmlFor="faculty-search" className="sr-only">
+              Search by faculty name or department
+            </label>
             <input
+              id="faculty-search"
               type="text"
               placeholder="Search by faculty name or department..."
               value={draftQuery}
@@ -222,6 +226,7 @@ export default function CampusHome() {
                   w-7 h-7 flex items-center justify-center rounded-lg
                   text-gray-500 dark:text-gray-400
                   hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-gray-200
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:focus-visible:ring-gray-500
                   transition
                 "
               >
@@ -249,6 +254,7 @@ export default function CampusHome() {
                         w-full text-left px-4 py-2.5 text-sm
                         text-gray-700 dark:text-gray-200
                         hover:bg-slate-100 dark:hover:bg-gray-700
+                        focus-visible:outline-none focus-visible:bg-slate-100 dark:focus-visible:bg-gray-700
                         transition
                       "
                     >
@@ -263,6 +269,7 @@ export default function CampusHome() {
             onClick={commitSearch}
             aria-label="Search"
             className="
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:focus-visible:ring-gray-500
               w-11 h-11 flex items-center justify-center
               rounded-xl border
               bg-white dark:bg-gray-800
@@ -277,7 +284,7 @@ export default function CampusHome() {
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-gray-500 dark:text-gray-400">
+          <div role="status" aria-live="polite" className="py-16 text-center text-gray-500 dark:text-gray-400">
             Loading faculty members...
           </div>
         ) : currentFaculties.length === 0 ? (

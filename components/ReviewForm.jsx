@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { ReviewsService, MIN_COMMENT_LENGTH } from "@/services/reviews/reviews.service";
 import { isCampusAuthorizedForEmail } from "@/lib/campus";
@@ -24,6 +24,8 @@ const METRIC_CONFIGS = [
 export default function ReviewForm({ campusSlug, facultyId, onReviewSubmitted }) {
   const { user, userCampus } = useAuth();
   const canSubmit = Boolean(user && userCampus === campusSlug);
+  const formId = useId();
+  const commentId = `${formId}-comment`;
 
   const [ratings, setRatings] = useState({
     attendance: 0,
@@ -91,10 +93,13 @@ export default function ReviewForm({ campusSlug, facultyId, onReviewSubmitted })
       <div>
         <div className="flex items-center gap-2 mb-2 text-gray-700 dark:text-gray-300">
           <MessageSquare className="w-4 h-4" />
-          <span className="text-sm font-medium">Your Experience</span>
+          <label htmlFor={commentId} className="text-sm font-medium">
+            Your Experience
+          </label>
         </div>
 
         <textarea
+          id={commentId}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder={`Share your honest experience (minimum ${MIN_COMMENT_LENGTH} characters)`}
@@ -111,6 +116,7 @@ export default function ReviewForm({ campusSlug, facultyId, onReviewSubmitted })
             border border-gray-200 dark:border-gray-700
             focus:border-gray-400 dark:focus:border-gray-500
             focus:ring-0
+            focus-visible:ring-2 focus-visible:ring-gray-400 dark:focus-visible:ring-gray-500
             transition
           "
         />
@@ -121,8 +127,16 @@ export default function ReviewForm({ campusSlug, facultyId, onReviewSubmitted })
         {METRIC_CONFIGS.map((m) => {
           const Icon = m.icon;
           return (
-            <div key={m.key} className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-800 dark:text-gray-200">
+            <div
+              key={m.key}
+              role="group"
+              aria-labelledby={`${formId}-${m.key}`}
+              className="flex items-center justify-between"
+            >
+              <div
+                id={`${formId}-${m.key}`}
+                className="flex items-center gap-2 text-sm font-medium text-gray-800 dark:text-gray-200"
+              >
                 <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                 {m.label}
               </div>
@@ -141,7 +155,7 @@ export default function ReviewForm({ campusSlug, facultyId, onReviewSubmitted })
 
       {/* ERROR */}
       {error && (
-        <p className="text-sm text-red-500 dark:text-red-400">
+        <p role="alert" className="text-sm text-red-500 dark:text-red-400">
           {error}
         </p>
       )}
@@ -152,6 +166,7 @@ export default function ReviewForm({ campusSlug, facultyId, onReviewSubmitted })
         disabled={!isFormValid}
         className={`
           w-full py-2.5 rounded-lg text-sm font-medium transition
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-500
           ${
             !isFormValid
               ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
@@ -181,7 +196,7 @@ function StarRow({ value, hoverValue, onHover, onLeave, onSelect }) {
             onMouseEnter={() => onHover(starValue)}
             onMouseLeave={onLeave}
             onClick={() => onSelect(starValue)}
-            className="p-0.5"
+            className="p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
             aria-label={`${starValue} star`}
           >
             <Star

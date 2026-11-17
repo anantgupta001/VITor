@@ -278,8 +278,15 @@ test("Scenario 4: Concurrent writers across independent processes are tracked in
       drainComplete = true;
     });
 
-    // Short wait to ensure coordinator transitioned gate to CLOSING and is polling
-    await new Promise((r) => setTimeout(r, 150));
+    // Wait (bounded) until the coordinator has actually transitioned the gate to CLOSING,
+    // instead of sleeping a fixed time that a slow emulator could exceed.
+    const closingDeadline = Date.now() + 5000;
+    while (
+      (await getMaintenanceGateState(adminDb)).status !== MAINTENANCE_STATES.CLOSING &&
+      Date.now() < closingDeadline
+    ) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
     assert.equal(drainComplete, false, "Drain must wait while child and parent writers are active");
 
     const gateWhileDraining = await getMaintenanceGateState(adminDb);

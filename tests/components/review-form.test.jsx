@@ -328,6 +328,19 @@ describe("ReviewForm Component", () => {
 
       const errorMsg = await screen.findByText("Failed to submit review. Try again.");
       expect(errorMsg).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent("Failed to submit review. Try again.");
+    });
+  });
+
+  describe("Accessibility semantics", () => {
+    it("labels the textarea and groups each rating control under its metric name", () => {
+      render(<ReviewForm campusSlug={campusSlug} facultyId={facultyId} onReviewSubmitted={vi.fn()} />);
+
+      expect(screen.getByLabelText("Your Experience").tagName).toBe("TEXTAREA");
+      for (const name of ["Attendance", "Correction", "Teaching", "Approachability"]) {
+        const group = screen.getByRole("group", { name });
+        expect(within(group).getAllByRole("button")).toHaveLength(5);
+      }
     });
   });
 });

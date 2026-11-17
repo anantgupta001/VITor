@@ -56,7 +56,7 @@ export default function FacultyDetail() {
       try {
         const [facultyData, reviewsData] = await Promise.all([
           FacultyRepository.getFacultyById(campusSlug, id),
-          ReviewsRepository.getReviewsByFaculty(campusSlug, id),
+          ReviewsRepository.getPublicReviews(campusSlug, id),
         ]);
 
         if (!cancelled) {
@@ -102,7 +102,7 @@ export default function FacultyDetail() {
 
     // Fallback: Re-fetch reviews so the new entry is visible and ordering is authoritative
     setRefreshingReviews(true);
-    ReviewsRepository.getReviewsByFaculty(campusSlug, id)
+    ReviewsRepository.getPublicReviews(campusSlug, id)
       .then((fresh) => {
         setReviews(fresh);
         setVisibleCount(REVIEWS_INITIAL);
@@ -127,7 +127,7 @@ export default function FacultyDetail() {
 
   if (!validCampus) {
     return (
-      <div className="p-10 text-red-500 dark:text-red-400">
+      <div role="alert" className="p-10 text-red-500 dark:text-red-400">
         Campus not found.
       </div>
     );
@@ -135,7 +135,7 @@ export default function FacultyDetail() {
 
   if (loading) {
     return (
-      <div className="p-10 text-gray-700 dark:text-gray-300">
+      <div role="status" aria-live="polite" className="p-10 text-gray-700 dark:text-gray-300">
         Loading...
       </div>
     );
@@ -143,7 +143,7 @@ export default function FacultyDetail() {
 
   if (!faculty) {
     return (
-      <div className="p-10 text-red-500 dark:text-red-400">
+      <div role="alert" className="p-10 text-red-500 dark:text-red-400">
         Faculty not found
       </div>
     );
