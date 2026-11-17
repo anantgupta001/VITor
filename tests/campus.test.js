@@ -8,6 +8,9 @@ import {
   getDualCampusOptions,
   getCampusSlugFromEmail,
   isDualCampusEmail,
+  getAuthGroupForEmail,
+  getAuthorizedCampusesForEmail,
+  isCampusAuthorizedForEmail,
 } from "../lib/campus.js";
 
 test("getAllCampuses - returns all 4 configured campuses", () => {
@@ -122,4 +125,46 @@ test("isDualCampusEmail - validates dual campus email addresses", () => {
   assert.equal(isDualCampusEmail(null), false);
   assert.equal(isDualCampusEmail(undefined), false);
   assert.equal(isDualCampusEmail(999), false);
+});
+
+test("Campus Helpers - getAuthGroupForEmail & getAuthorizedCampusesForEmail", () => {
+  // vitapstudent.ac.in
+  assert.equal(getAuthGroupForEmail("student@vitapstudent.ac.in"), "vit-ap");
+  assert.deepEqual(getAuthorizedCampusesForEmail("student@vitapstudent.ac.in"), ["vit-ap"]);
+
+  // vitbhopal.ac.in
+  assert.equal(getAuthGroupForEmail("student@vitbhopal.ac.in"), "vit-b");
+  assert.deepEqual(getAuthorizedCampusesForEmail("student@vitbhopal.ac.in"), ["vit-b"]);
+
+  // vitstudent.ac.in -> vit-vc (dual campus)
+  assert.equal(getAuthGroupForEmail("student@vitstudent.ac.in"), "vit-vc");
+  assert.deepEqual(getAuthorizedCampusesForEmail("student@vitstudent.ac.in"), ["vit-v", "vit-c"]);
+
+  // Unknown / invalid
+  assert.equal(getAuthGroupForEmail("user@gmail.com"), null);
+  assert.deepEqual(getAuthorizedCampusesForEmail("user@gmail.com"), []);
+  assert.equal(getAuthGroupForEmail("not-an-email"), null);
+  assert.equal(getAuthGroupForEmail(null), null);
+});
+
+test("Campus Helpers - isCampusAuthorizedForEmail", () => {
+  // vitstudent.ac.in has interchangeable access to BOTH vit-v and vit-c
+  assert.equal(isCampusAuthorizedForEmail("student@vitstudent.ac.in", "vit-v"), true);
+  assert.equal(isCampusAuthorizedForEmail("student@vitstudent.ac.in", "vit-c"), true);
+  assert.equal(isCampusAuthorizedForEmail("student@vitstudent.ac.in", "vit-ap"), false);
+  assert.equal(isCampusAuthorizedForEmail("student@vitstudent.ac.in", "vit-b"), false);
+
+  // vitapstudent.ac.in only authorized for vit-ap
+  assert.equal(isCampusAuthorizedForEmail("student@vitapstudent.ac.in", "vit-ap"), true);
+  assert.equal(isCampusAuthorizedForEmail("student@vitapstudent.ac.in", "vit-v"), false);
+  assert.equal(isCampusAuthorizedForEmail("student@vitapstudent.ac.in", "vit-c"), false);
+
+  // vitbhopal.ac.in only authorized for vit-b
+  assert.equal(isCampusAuthorizedForEmail("student@vitbhopal.ac.in", "vit-b"), true);
+  assert.equal(isCampusAuthorizedForEmail("student@vitbhopal.ac.in", "vit-ap"), false);
+
+  // Edge cases
+  assert.equal(isCampusAuthorizedForEmail("user@gmail.com", "vit-ap"), false);
+  assert.equal(isCampusAuthorizedForEmail(null, "vit-ap"), false);
+  assert.equal(isCampusAuthorizedForEmail("student@vitapstudent.ac.in", null), false);
 });

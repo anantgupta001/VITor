@@ -89,6 +89,8 @@ npm run test:e2e
 npm run test:security
 ```
 
+> **Known issue: `npm run test:e2e` (Turbopack startup timeout).** The official runner (`scripts/run-e2e-tests.mjs`) starts `next dev` on port 3099 with the default Turbopack bundler. On the development machine, the dev server did not become ready within the runner's 60-second startup window on repeated attempts, so the official runner is currently blocked. A temporary runner that used `next dev --webpack` ran the complete E2E suite and passed 25/25. That temporary runner has been removed, and the official runner and its default bundler are unchanged. Until the Turbopack timeout is resolved, E2E results from the official command should not be treated as a passing run.
+
 ### Additional Checks
 
 ```bash

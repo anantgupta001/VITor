@@ -63,6 +63,14 @@ process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9098";
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8086";
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9098";
 process.env.PORT = "3099";
+// App Check (reCAPTCHA Enterprise) cannot be satisfied against local emulators.
+// An empty site key keeps the client from initializing App Check, so requests carry
+// no App Check token. Next.js does not override a variable that is already set, so this
+// wins over the value in .env.local. The server only accepts a missing token outside production.
+process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY = "";
+// The server-side Admin SDK reads FIREBASE_PROJECT_ID (set to the real project in .env.local).
+// Pin it to the emulator project so ID tokens minted by the Auth Emulator are accepted.
+process.env.FIREBASE_PROJECT_ID = "demo-vitor-e2e";
 
 // ── Process Tracking & Cleanup ───────────────────────────────────────────────
 let emulatorProc = null;
@@ -397,6 +405,28 @@ async function createTestAuthUser() {
     throw new Error("Failed to resolve UID for test auth user.");
   }
 
+  // Ensure email is marked verified in Auth Emulator so mutation APIs accept it
+  try {
+    const updateUrl = `http://${authHost}/identitytoolkit.googleapis.com/v1/accounts:update?key=fake-api-key-for-e2e`;
+    await fetch(updateUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        localId: uid,
+        emailVerified: true,
+      }),
+    });
+    const { initializeApp, getApps } = await import("firebase-admin/app");
+    const { getAuth } = await import("firebase-admin/auth");
+    const adminApp =
+      getApps().find((a) => a.name === "e2e-admin-runner") ||
+      initializeApp({ projectId: "demo-vitor-e2e" }, "e2e-admin-runner");
+    await getAuth(adminApp).updateUser(uid, { emailVerified: true });
+    console.log(`[run-e2e-tests] Verified student email for UID: ${uid}`);
+  } catch (err) {
+    console.warn(`[run-e2e-tests] Notice: Error verifying test user email: ${err.message}`);
+  }
+
   const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
   const projectId = "demo-vitor-e2e";
   const userDocUrl = `http://${emulatorHost}/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`;
@@ -572,6 +602,7 @@ async function main() {
         "test",
         "--config",
         "playwright.config.mjs",
+        ...process.argv.slice(2),
       ],
       {
         cwd: root,

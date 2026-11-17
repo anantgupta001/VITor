@@ -54,6 +54,27 @@ export async function signInAsTestUser(
 
     if (uid) {
       await seedDocument("users", uid, { campusSlug: "vit-v" });
+
+      // Mark email as verified in Auth Emulator
+      try {
+        const updateUrl = `http://${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:update?key=fake-api-key-for-e2e`;
+        await fetch(updateUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            localId: uid,
+            emailVerified: true,
+          }),
+        });
+        const { initializeApp, getApps } = await import("firebase-admin/app");
+        const { getAuth } = await import("firebase-admin/auth");
+        const adminApp =
+          getApps().find((a) => a.name === "e2e-helper-admin") ||
+          initializeApp({ projectId: PROJECT_ID }, "e2e-helper-admin");
+        await getAuth(adminApp).updateUser(uid, { emailVerified: true });
+      } catch {
+        // non-critical if emulator already verified
+      }
     }
   } catch (err) {
     console.warn("Notice in signInAsTestUser helper:", err.message);
@@ -72,6 +93,17 @@ export async function signInAsTestUser(
 
   // Wait for the UI to reflect authenticated state (Logout button appears in navbar)
   await page.waitForSelector("button:has-text('Logout')", { timeout: 10_000 });
+}
+
+/**
+ * Scope to the "Student Reviews" section, i.e. the rendered review list only.
+ * The section is the heading's parent; the ReviewForm (and its textarea) lives
+ * outside it, so text inside this locator proves a review was actually rendered.
+ */
+export function getReviewsSection(page) {
+  return page
+    .getByRole("heading", { name: "Student Reviews" })
+    .locator("xpath=..");
 }
 
 /**

@@ -13,26 +13,39 @@ rules_version = '2';
 //      * @vitapstudent.ac.in -> campusSlug == 'vit-ap'
 //      * @vitbhopal.ac.in -> campusSlug == 'vit-b'
 //    - Allowed keys: ['campusSlug'] strictly.
+//    - Access: Owner-only read, create, and update. Profile deletion denied.
 //
 // 2. Faculties Collection: /campuses/{campusSlug}/faculties/{facultyId}
 //    - Document ID: facultyId (faculty identifier)
-//    - Fields: Managed directory (name, department, email, rating stats).
-//    - Access: Public read for valid campuses. Client creation/update/deletion denied.
+//    - Fields: Managed directory (name, department, email, avgRating, reviewCount, etc.)
+//    - Access: Public read for valid campuses. Direct client create/update/delete denied.
 //
 // 3. Reviews Subcollection: /campuses/{campusSlug}/faculties/{facultyId}/reviews/{userId}
-//    - Document ID: userId (matches Firebase Auth UID)
-//    - Fields:
-//      * userId: string (required, immutable, must equal request.auth.uid)
-//      * user: string (optional, max 50 chars, e.g. "Anonymous User")
-//      * attendance: number (required, 1.0 - 5.0)
-//      * correction: number (required, 1.0 - 5.0)
-//      * teaching: number (required, 1.0 - 5.0)
-//      * approachability: number (required, 1.0 - 5.0)
-//      * overall: number (required, 1.0 - 5.0)
-//      * text: string (required, min 10 chars, max 1000 chars)
-//      * updatedAt: timestamp (optional)
-//    - Required keys: ['userId', 'attendance', 'correction', 'teaching', 'approachability', 'overall', 'text']
-//    - Allowed keys: ['userId', 'user', 'attendance', 'correction', 'teaching', 'approachability', 'overall', 'text', 'updatedAt']
+//    - Document ID: userId (reviewer UID matching Firebase Auth UID)
+//    - Fields: Server-managed review record (userId, ratings, comment, status, shardId, version, timestamps, etc.)
+//    - Access: Public read for valid campuses. Direct client create/update/delete denied.
+//      All review submissions, updates, and moderation are mediated via server APIs using Admin SDK.
+//
+// 4. Shards Subcollection: /campuses/{campusSlug}/faculties/{facultyId}/shards/{shardId}
+//    - Document ID: shardId (string '0'..'4')
+//    - Fields: Sharded counters (reviewCount, rating sums, updatedAt, schemeVersion)
+//    - Access: Public read for valid campuses. Direct client create/update/delete denied.
+//
+// 5. Request Receipts Collection: /campuses/{campusSlug}/requestReceipts/{receiptId}
+//    - Document ID: receiptId (idempotency key)
+//    - Fields: Server idempotency receipts (idempotencyKey, payloadHash, statusCode, responseBody, etc.)
+//    - Access: Direct client read and write denied completely.
+//
+// 6. User Rate Limits Subcollection: /campuses/{campusSlug}/users/{userId}/rateLimits/{document=**}
+//    - Document ID: rate limit document (e.g. 'reviewQuota')
+//    - Fields: Server rate-limiting tracking (timestamps, count, updatedAt)
+//    - Access: Direct client read and write denied completely.
+//
+// 7. System Collection: /system/{docId}
+//    - Document ID: docId (e.g. 'reviewMaintenance')
+//    - Fields: System status (status: 'OPEN' | 'CLOSING' | 'CLOSED', updatedAt, metadata)
+//    - Access: Public read permitted. Direct client write denied completely.
+//
 // ===============================================================
 
 service cloud.firestore {
@@ -79,20 +92,6 @@ service cloud.firestore {
         request.auth.token.email.matches('.*@vitbhopal[.]ac[.]in$');
     }
 
-    // Verify that the user has verified rights to review faculty at this campus
-    function isAuthorizedForCampus(campusSlug) {
-      return (
-        (hasVitApEmail() && campusSlug == 'vit-ap') ||
-        (hasVitBhopalEmail() && campusSlug == 'vit-b') ||
-        (
-          hasVitStudentEmail() &&
-          campusSlug in ['vit-v', 'vit-c'] &&
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.campusSlug == campusSlug
-        )
-      );
-    }
-
     // ===============================================================
     // Domain Validators (Used for both Create and Update)
     // ===============================================================
@@ -110,32 +109,16 @@ service cloud.firestore {
         );
     }
 
-    // Validator for Review documents (/campuses/{slug}/faculties/{id}/reviews/{uid})
-    function isValidReview(data) {
-      return data.keys().hasAll(['userId', 'attendance', 'correction', 'teaching', 'approachability', 'overall', 'text']) &&
-        data.keys().hasOnly(['userId', 'user', 'attendance', 'correction', 'teaching', 'approachability', 'overall', 'text', 'updatedAt']) &&
-        data.userId is string &&
-        data.userId == request.auth.uid &&
-        (!('user' in data) || (data.user is string && data.user.size() <= 50)) &&
-        data.attendance is number && data.attendance >= 1 && data.attendance <= 5 &&
-        data.correction is number && data.correction >= 1 && data.correction <= 5 &&
-        data.teaching is number && data.teaching >= 1 && data.teaching <= 5 &&
-        data.approachability is number && data.approachability >= 1 && data.approachability <= 5 &&
-        data.overall is number && data.overall >= 1.0 && data.overall <= 5.0 &&
-        data.text is string && data.text.size() >= 10 && data.text.size() <= 1000 &&
-        (!('updatedAt' in data) || data.updatedAt is timestamp);
-    }
-
     // ===============================================================
     // Collection Match Rules
     // ===============================================================
 
-    // User profile documents (stores campus selection for Vellore/Chennai)
+    // 1. User profile documents (stores campus selection for Vellore/Chennai)
     match /users/{userId} {
       // Users can only read their own profile
       allow read: if isOwner(userId);
 
-      // Users can create and update their profile with strict validation
+      // Authenticated owners can create and update their profile with strict domain bounds
       allow create: if isOwner(userId) && isValidUserProfile(request.resource.data);
       allow update: if isOwner(userId) && isValidUserProfile(request.resource.data);
 
@@ -143,39 +126,57 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Faculty directory under each campus
-    match /campuses/{campusSlug}/faculties/{facultyId} {
-      // Public read restricted to valid campuses
-      allow read: if isValidCampus(campusSlug);
-
-      // Client direct creation, update, and deletion are denied
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
-
-      // Faculty reviews subcollection
-      match /reviews/{userId} {
+    // 2. Campus Scoped Documents & Subcollections
+    match /campuses/{campusSlug} {
+      // Faculty directory under each campus
+      match /faculties/{facultyId} {
         // Public read restricted to valid campuses
         allow read: if isValidCampus(campusSlug);
 
-        // Authenticated users can create reviews for their assigned campus
-        allow create: if isOwner(userId) &&
-          isAuthorizedForCampus(campusSlug) &&
-          isValidReview(request.resource.data);
+        // Client direct creation, update, and deletion are denied
+        allow create, update, delete: if false;
 
-        // Authenticated users can update their own reviews with immutable userId
-        allow update: if isOwner(userId) &&
-          isAuthorizedForCampus(campusSlug) &&
-          isValidReview(request.resource.data) &&
-          request.resource.data.userId == resource.data.userId;
+        // Faculty reviews subcollection (managed entirely by server transactions)
+        match /reviews/{userId} {
+          // Public read restricted to valid campuses
+          allow read: if isValidCampus(campusSlug);
 
-        // Review deletion is disallowed
-        allow delete: if false;
+          // Direct client creation, update, and deletion are denied
+          allow create, update, delete: if false;
+        }
+
+        // Aggregate counter shards
+        match /shards/{shardId} {
+          // Public read restricted to valid campuses
+          allow read: if isValidCampus(campusSlug);
+
+          // Direct client creation, update, and deletion are denied
+          allow create, update, delete: if false;
+        }
+      }
+
+      // Idempotency request receipts - server-only access
+      match /requestReceipts/{receiptId} {
+        allow read, write: if false;
+      }
+
+      // Rate limit quotas - server-only access
+      match /users/{userId}/rateLimits/{document=**} {
+        allow read, write: if false;
       }
     }
 
+    // 3. System Configuration & Maintenance Gate
+    match /system/{docId} {
+      // Public read permitted for maintenance gate status checks
+      allow read: if true;
+
+      // Direct client creation, update, and deletion are denied
+      allow write: if false;
+    }
+
     // ===============================================================
-    // Default Deny Rule
+    // Default Deny Rule for Undeclared Collections
     // ===============================================================
     match /{document=**} {
       allow read, write: if false;

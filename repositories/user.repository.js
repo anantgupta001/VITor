@@ -1,3 +1,4 @@
+
 /**
  * User Data Access Layer.
  * Interacts with the `users/{userId}` Firestore collection.
@@ -11,6 +12,7 @@ export const UserRepository = {
    */
   async getUserProfile(userId) {
     if (!userId) return null;
+
     const snap = await getDoc(doc(db, "users", userId));
     return snap.exists() ? snap.data() : null;
   },
@@ -19,7 +21,19 @@ export const UserRepository = {
    * Persist a user's selected campus preference.
    */
   async updateUserCampus(userId, campusSlug) {
-    if (!userId || typeof userId !== "string" || !campusSlug || typeof campusSlug !== "string") return;
-    await setDoc(doc(db, "users", userId), { campusSlug }, { merge: true });
+    if (
+      !userId ||
+      typeof userId !== "string" ||
+      !campusSlug ||
+      typeof campusSlug !== "string"
+    ) {
+      return;
+    }
+
+    await setDoc(
+      doc(db, "users", userId),
+      { campusSlug },
+      { merge: true }
+    );
   },
 };

@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from "@playwright/test";
+import { getReviewsSection } from "./helpers.mjs";
 
 test.describe("Journey 3: Faculty Details and Reviews", () => {
   test("displays faculty profile with information and aggregate statistics", async ({
@@ -35,14 +36,15 @@ test.describe("Journey 3: Faculty Details and Reviews", () => {
     });
 
     // Student Reviews section
-    await expect(page.getByText("Student Reviews")).toBeVisible();
+    const reviewsSection = getReviewsSection(page);
+    await expect(reviewsSection.getByRole("heading", { name: "Student Reviews" })).toBeVisible();
 
-    // Seeded review texts
+    // Seeded review texts must be rendered inside the reviews list itself
     await expect(
-      page.getByText("Great teacher, very approachable and explains well.")
+      reviewsSection.getByText("Great teacher, very approachable and explains well.", { exact: true })
     ).toBeVisible();
     await expect(
-      page.getByText("One of the best professors in the department.")
+      reviewsSection.getByText("One of the best professors in the department.", { exact: true })
     ).toBeVisible();
   });
 
@@ -54,7 +56,7 @@ test.describe("Journey 3: Faculty Details and Reviews", () => {
       timeout: 15_000,
     });
 
-    await expect(page.getByText("No reviews yet.")).toBeVisible();
+    await expect(getReviewsSection(page).getByText("No reviews yet.")).toBeVisible();
   });
 
   test("back link navigates to the campus directory", async ({ page }) => {

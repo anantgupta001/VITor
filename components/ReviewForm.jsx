@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { ReviewsService, MIN_COMMENT_LENGTH } from "@/services/reviews/reviews.service";
+import { isCampusAuthorizedForEmail } from "@/lib/campus";
 
 import {
   CalendarCheck,
@@ -70,7 +71,15 @@ export default function ReviewForm({ campusSlug, facultyId, onReviewSubmitted })
       }
     } catch (err) {
       console.error("Failed to submit review:", err);
-      setError(err?.message || "Failed to submit review. Try again.");
+      let userMsg = err?.message || "Failed to submit review. Try again.";
+      if (err?.statusCode === 429 || err?.code === "RATE_LIMIT_EXCEEDED") {
+        userMsg = err.message || "Rate limit reached: Maximum 5 reviews per 24 hours.";
+      } else if (err?.statusCode === 409 || err?.code === "VERSION_CONFLICT") {
+        userMsg = "This review was modified in another window. Please refresh the page.";
+      } else if (err?.statusCode === 503 || err?.code === "SERVICE_MAINTENANCE") {
+        userMsg = "Review submission is temporarily paused for system maintenance. Please try again soon.";
+      }
+      setError(userMsg);
     } finally {
       setSubmitting(false);
     }

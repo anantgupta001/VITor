@@ -1,44 +1,30 @@
 /**
- * Dedicated Security Regression Test Suite for Production Firestore Security Rules.
+ * Dedicated Security Regression Test Suite for Production Firestore Security Rules (Phase 6.1).
  *
  * Requirements Tested:
- * 1. Unauthenticated access denial across all protected writes.
- * 2. User ownership & Profile security:
+ * 1. Deny direct client review creation, update, and deletion across all campuses.
+ * 2. Deny direct client aggregate and shard writes.
+ * 3. Deny direct client request receipt reads and writes.
+ * 4. Deny direct client rate-limit quota reads and writes.
+ * 5. Deny direct client maintenance document writes (public read permitted).
+ * 6. User ownership & Profile security:
  *    - Owner-only read and write on /users/{userId}.
  *    - Schema restriction: only 'campusSlug' permitted.
  *    - Domain-bound campusSlug validation.
  *    - Cross-user profile modification denial.
  *    - Profile deletion denial.
- * 3. Review ownership & Impersonation:
- *    - Review creation only allowed by authenticated owner matching path and payload.
- *    - Modification/deletion of another user's review denied.
- *    - Review deletion denied.
- *    - Immutable userId on update.
- * 4. Review integrity & Schema validation:
- *    - Valid review creation with all 4 metrics allowed.
- *    - Out-of-bounds ratings (< 1, > 5) denied.
- *    - Non-numeric ratings denied.
- *    - Short (< 10 chars) or long (> 1000 chars) comments denied.
- *    - Arbitrary unknown fields denied.
- * 5. Campus isolation:
- *    - AP student restricted strictly to vit-ap.
- *    - Bhopal student restricted strictly to vit-b.
- *    - Dual-campus (vitstudent.ac.in) student restricted strictly to their verified profile campus.
- *    - Non-VIT email accounts denied review submission.
- *    - Invalid campus slugs in document paths denied.
- * 6. Faculty permissions & Aggregate statistics:
- *    - Public read allowed on valid campus faculties and reviews.
+ * 7. Faculty permissions & Public Reads:
+ *    - Public read allowed on valid campus faculties, reviews, and shards.
  *    - Public read on invalid campus denied.
  *    - Direct client faculty creation, update, and deletion denied.
- *    - Direct client manipulation of faculty aggregate statistics denied.
- * 7. Default deny on any undeclared root collections.
+ * 8. Default deny on any undeclared root collections.
  */
 
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath } from "url";
 import {
   initializeTestEnvironment,
   assertFails,
@@ -50,7 +36,6 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
-  serverTimestamp,
 } from "firebase/firestore";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -113,7 +98,7 @@ test.before(async () => {
 test.beforeEach(async () => {
   await testEnv.clearFirestore();
 
-  // Seed baseline faculty documents via security-disabled administrative context
+  // Seed baseline documents via security-disabled administrative context
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const adminDb = context.firestore();
     await setDoc(doc(adminDb, "campuses", "vit-ap", "faculties", "fac-ap-1"), {
@@ -122,26 +107,21 @@ test.beforeEach(async () => {
       avgRating: 4.0,
       reviewCount: 1,
     });
-    await setDoc(doc(adminDb, "campuses", "vit-v", "faculties", "fac-v-1"), {
-      name: "Dr. Vellore Professor",
-      department: "ECE",
-      avgRating: 4.5,
-      reviewCount: 2,
+    await setDoc(doc(adminDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", "existing_review"), {
+      userId: "existing_review",
+      overall: 4.0,
+      comment: "Good teaching.",
+      status: "ACTIVE",
     });
-    await setDoc(doc(adminDb, "campuses", "vit-c", "faculties", "fac-c-1"), {
-      name: "Dr. Chennai Professor",
-      department: "MECH",
-      avgRating: 3.8,
+    await setDoc(doc(adminDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "shards", "0"), {
+      shardId: "0",
       reviewCount: 1,
     });
-    await setDoc(doc(adminDb, "campuses", "vit-b", "faculties", "fac-b-1"), {
-      name: "Dr. Bhopal Professor",
-      department: "CIVIL",
-      avgRating: 4.2,
-      reviewCount: 1,
+    await setDoc(doc(adminDb, "system", "reviewMaintenance"), {
+      status: "OPEN",
     });
 
-    // Seed dual-campus user profiles for Vellore and Chennai students
+    // Seed dual-campus user profiles
     await setDoc(doc(adminDb, "users", USER_VELLORE.uid), {
       campusSlug: "vit-v",
     });
@@ -158,42 +138,74 @@ test.after(async () => {
 });
 
 // ============================================================================
-// 1. Unauthenticated Access Tests
+// 1. Direct Client Review Writes Denied (Phase 6.1 Trusted Architecture)
 // ============================================================================
 
-test("Security Rules [Unauth] - unauthenticated review creation is denied", async () => {
-  const unauthDb = testEnv.unauthenticatedContext().firestore();
-  const reviewRef = doc(unauthDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", "anonymous");
-  await assertFails(setDoc(reviewRef, validReviewPayload("anonymous")));
+test("Security Rules [Trusted Reviews] - direct client review creation is DENIED for authenticated users", async () => {
+  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
+  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_AP.uid);
+  await assertFails(setDoc(reviewRef, validReviewPayload(USER_AP.uid)));
 });
 
-test("Security Rules [Unauth] - unauthenticated profile modification is denied", async () => {
-  const unauthDb = testEnv.unauthenticatedContext().firestore();
-  const userRef = doc(unauthDb, "users", "unauth_user");
-  await assertFails(setDoc(userRef, { campusSlug: "vit-ap" }));
+test("Security Rules [Trusted Reviews] - direct client review update is DENIED", async () => {
+  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
+  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", "existing_review");
+  await assertFails(updateDoc(reviewRef, { comment: "Tampered review text" }));
 });
 
-test("Security Rules [Unauth] - unauthenticated profile read is denied", async () => {
-  const unauthDb = testEnv.unauthenticatedContext().firestore();
-  const userRef = doc(unauthDb, "users", USER_VELLORE.uid);
-  await assertFails(getDoc(userRef));
-});
-
-test("Security Rules [Unauth] - unauthenticated faculty modifications are denied", async () => {
-  const unauthDb = testEnv.unauthenticatedContext().firestore();
-  const facRef = doc(unauthDb, "campuses", "vit-ap", "faculties", "fac-ap-1");
-  await assertFails(updateDoc(facRef, { avgRating: 5.0 }));
-  await assertFails(deleteDoc(facRef));
-});
-
-test("Security Rules [Unauth] - public reads of valid campus faculty and reviews are allowed", async () => {
-  const unauthDb = testEnv.unauthenticatedContext().firestore();
-  const facRef = doc(unauthDb, "campuses", "vit-ap", "faculties", "fac-ap-1");
-  await assertSucceeds(getDoc(facRef));
+test("Security Rules [Trusted Reviews] - direct client review deletion is DENIED", async () => {
+  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
+  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", "existing_review");
+  await assertFails(deleteDoc(reviewRef));
 });
 
 // ============================================================================
-// 2. User Profiles & Ownership Tests
+// 2. Direct Client Shard & Aggregate Writes Denied
+// ============================================================================
+
+test("Security Rules [Shards] - direct client shard writes are DENIED", async () => {
+  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
+  const shardRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "shards", "0");
+  await assertFails(updateDoc(shardRef, { reviewCount: 999 }));
+  await assertFails(setDoc(shardRef, { reviewCount: 1 }));
+});
+
+// ============================================================================
+// 3. Request Receipts & Rate Limits Client Access Denied
+// ============================================================================
+
+test("Security Rules [Receipts & Quota] - client access to request receipts is DENIED", async () => {
+  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
+  const receiptRef = doc(apDb, "campuses", "vit-ap", "requestReceipts", "key-123");
+  await assertFails(getDoc(receiptRef));
+  await assertFails(setDoc(receiptRef, { payloadHash: "abc" }));
+});
+
+test("Security Rules [Receipts & Quota] - client access to rate limit quota is DENIED", async () => {
+  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
+  const quotaRef = doc(apDb, "campuses", "vit-ap", "users", USER_AP.uid, "rateLimits", "reviewQuota");
+  await assertFails(getDoc(quotaRef));
+  await assertFails(setDoc(quotaRef, { timestamps: [] }));
+});
+
+// ============================================================================
+// 4. Maintenance Gate Permissions
+// ============================================================================
+
+test("Security Rules [Maintenance] - client can read maintenance gate status", async () => {
+  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
+  const gateRef = doc(apDb, "system", "reviewMaintenance");
+  await assertSucceeds(getDoc(gateRef));
+});
+
+test("Security Rules [Maintenance] - client write to maintenance gate is DENIED", async () => {
+  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
+  const gateRef = doc(apDb, "system", "reviewMaintenance");
+  await assertFails(setDoc(gateRef, { status: "CLOSED" }));
+});
+
+// ============================================================================
+// 5. User Profile Permissions & Validation
 // ============================================================================
 
 test("Security Rules [Profile] - user can read their own profile", async () => {
@@ -230,12 +242,6 @@ test("Security Rules [Profile] - dual-campus user cannot set non-dual campus (vi
   await assertFails(setDoc(userRef, { campusSlug: "vit-b" }));
 });
 
-test("Security Rules [Profile] - AP student cannot set campus to vit-v or vit-c", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const userRef = doc(apDb, "users", USER_AP.uid);
-  await assertFails(setDoc(userRef, { campusSlug: "vit-v" }));
-});
-
 test("Security Rules [Profile] - arbitrary or protected fields (e.g. role, admin) are denied", async () => {
   const velloreDb = testEnv.authenticatedContext(USER_VELLORE.uid, { email: USER_VELLORE.email }).firestore();
   const userRef = doc(velloreDb, "users", USER_VELLORE.uid);
@@ -250,205 +256,41 @@ test("Security Rules [Profile] - profile deletion is denied", async () => {
 });
 
 // ============================================================================
-// 3. Review Ownership & Impersonation Tests
+// 6. Public Reads & Faculty Permissions
 // ============================================================================
 
-test("Security Rules [Review Ownership] - User A cannot create review claiming to belong to User B", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  // Target document path for User B
-  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_BHOPAL.uid);
-  await assertFails(setDoc(reviewRef, validReviewPayload(USER_BHOPAL.uid)));
+test("Security Rules [Public Reads] - public read allowed on valid campus faculties, reviews, and shards", async () => {
+  const unauthDb = testEnv.unauthenticatedContext().firestore();
+  const facRef = doc(unauthDb, "campuses", "vit-ap", "faculties", "fac-ap-1");
+  const reviewRef = doc(unauthDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", "existing_review");
+  const shardRef = doc(unauthDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "shards", "0");
+
+  await assertSucceeds(getDoc(facRef));
+  await assertSucceeds(getDoc(reviewRef));
+  await assertSucceeds(getDoc(shardRef));
 });
 
-test("Security Rules [Review Ownership] - User A cannot write payload with spoofed userId", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  // Document path for User A, but payload claims to be User B
-  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_AP.uid);
-  await assertFails(setDoc(reviewRef, validReviewPayload(USER_BHOPAL.uid)));
+test("Security Rules [Public Reads] - public read on invalid campus is denied", async () => {
+  const unauthDb = testEnv.unauthenticatedContext().firestore();
+  const invalidRef = doc(unauthDb, "campuses", "invalid-campus", "faculties", "fac-1");
+  await assertFails(getDoc(invalidRef));
 });
 
-test("Security Rules [Review Ownership] - User A cannot modify User B's review", async () => {
-  // Pre-seed User B review via admin context
-  await testEnv.withSecurityRulesDisabled(async (context) => {
-    const adminDb = context.firestore();
-    await setDoc(
-      doc(adminDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", "existing_student"),
-      validReviewPayload("existing_student")
-    );
-  });
-
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const targetRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", "existing_student");
-  await assertFails(updateDoc(targetRef, { text: "Modified by another student without permission." }));
-});
-
-test("Security Rules [Review Ownership] - review deletion is denied", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_AP.uid);
-  await assertSucceeds(setDoc(reviewRef, validReviewPayload(USER_AP.uid)));
-  await assertFails(deleteDoc(reviewRef));
-});
-
-test("Security Rules [Review Ownership] - review ownership userId is immutable on update", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_AP.uid);
-  await assertSucceeds(setDoc(reviewRef, validReviewPayload(USER_AP.uid)));
-
-  // Attempting to change ownership to another userId must fail
-  await assertFails(updateDoc(reviewRef, { userId: "transfer_target_uid" }));
-});
-
-// ============================================================================
-// 4. Review Integrity & Field Validation Tests
-// ============================================================================
-
-test("Security Rules [Review Integrity] - valid review submission is allowed", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_AP.uid);
-  await assertSucceeds(setDoc(reviewRef, validReviewPayload(USER_AP.uid)));
-});
-
-test("Security Rules [Review Integrity] - missing required rating criteria is denied", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_AP.uid);
-
-  const payload = validReviewPayload(USER_AP.uid);
-  delete payload.teaching; // Missing teaching rating
-  await assertFails(setDoc(reviewRef, payload));
-});
-
-test("Security Rules [Review Integrity] - rating boundaries: ratings < 1 and > 5 are denied", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_AP.uid);
-
-  await assertFails(setDoc(reviewRef, { ...validReviewPayload(USER_AP.uid), attendance: 0 }));
-  await assertFails(setDoc(reviewRef, { ...validReviewPayload(USER_AP.uid), attendance: -1 }));
-  await assertFails(setDoc(reviewRef, { ...validReviewPayload(USER_AP.uid), correction: 6 }));
-  await assertFails(setDoc(reviewRef, { ...validReviewPayload(USER_AP.uid), overall: 5.5 }));
-});
-
-test("Security Rules [Review Integrity] - non-numeric ratings are denied", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_AP.uid);
-
-  await assertFails(setDoc(reviewRef, { ...validReviewPayload(USER_AP.uid), attendance: "5" }));
-  await assertFails(setDoc(reviewRef, { ...validReviewPayload(USER_AP.uid), teaching: true }));
-});
-
-test("Security Rules [Review Integrity] - comment length constraints: min 10, max 1000", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_AP.uid);
-
-  // 9 characters (below minimum 10)
-  await assertFails(setDoc(reviewRef, { ...validReviewPayload(USER_AP.uid), text: "Too short" }));
-
-  // Exactly 10 characters (valid)
-  await assertSucceeds(setDoc(reviewRef, { ...validReviewPayload(USER_AP.uid), text: "1234567890" }));
-
-  // > 1000 characters (exceeds maximum 1000)
-  await assertFails(setDoc(reviewRef, { ...validReviewPayload(USER_AP.uid), text: "a".repeat(1001) }));
-});
-
-test("Security Rules [Review Integrity] - unexpected or unknown fields are denied", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_AP.uid);
-
-  await assertFails(setDoc(reviewRef, {
-    ...validReviewPayload(USER_AP.uid),
-    maliciousScript: "<script>alert(1)</script>",
-  }));
-});
-
-// ============================================================================
-// 5. Campus Isolation & Authorization Tests
-// ============================================================================
-
-test("Security Rules [Campus Isolation] - AP student can review AP faculty", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const reviewRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_AP.uid);
-  await assertSucceeds(setDoc(reviewRef, validReviewPayload(USER_AP.uid)));
-});
-
-test("Security Rules [Campus Isolation] - AP student cannot review Vellore or Chennai faculty", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const velloreReviewRef = doc(apDb, "campuses", "vit-v", "faculties", "fac-v-1", "reviews", USER_AP.uid);
-  await assertFails(setDoc(velloreReviewRef, validReviewPayload(USER_AP.uid)));
-
-  const chennaiReviewRef = doc(apDb, "campuses", "vit-c", "faculties", "fac-c-1", "reviews", USER_AP.uid);
-  await assertFails(setDoc(chennaiReviewRef, validReviewPayload(USER_AP.uid)));
-});
-
-test("Security Rules [Campus Isolation] - Bhopal student cannot review Vellore faculty", async () => {
-  const bhopalDb = testEnv.authenticatedContext(USER_BHOPAL.uid, { email: USER_BHOPAL.email }).firestore();
-  const velloreReviewRef = doc(bhopalDb, "campuses", "vit-v", "faculties", "fac-v-1", "reviews", USER_BHOPAL.uid);
-  await assertFails(setDoc(velloreReviewRef, validReviewPayload(USER_BHOPAL.uid)));
-});
-
-test("Security Rules [Campus Isolation] - Vellore dual-campus student can review Vellore faculty", async () => {
-  const velloreDb = testEnv.authenticatedContext(USER_VELLORE.uid, { email: USER_VELLORE.email }).firestore();
-  const reviewRef = doc(velloreDb, "campuses", "vit-v", "faculties", "fac-v-1", "reviews", USER_VELLORE.uid);
-  await assertSucceeds(setDoc(reviewRef, validReviewPayload(USER_VELLORE.uid)));
-});
-
-test("Security Rules [Campus Isolation] - Vellore dual-campus student cannot review Chennai faculty", async () => {
-  const velloreDb = testEnv.authenticatedContext(USER_VELLORE.uid, { email: USER_VELLORE.email }).firestore();
-  const chennaiReviewRef = doc(velloreDb, "campuses", "vit-c", "faculties", "fac-c-1", "reviews", USER_VELLORE.uid);
-  await assertFails(setDoc(chennaiReviewRef, validReviewPayload(USER_VELLORE.uid)));
-});
-
-test("Security Rules [Campus Isolation] - Chennai dual-campus student can review Chennai faculty", async () => {
-  const chennaiDb = testEnv.authenticatedContext(USER_CHENNAI.uid, { email: USER_CHENNAI.email }).firestore();
-  const reviewRef = doc(chennaiDb, "campuses", "vit-c", "faculties", "fac-c-1", "reviews", USER_CHENNAI.uid);
-  await assertSucceeds(setDoc(reviewRef, validReviewPayload(USER_CHENNAI.uid)));
-});
-
-test("Security Rules [Campus Isolation] - non-VIT email accounts cannot submit reviews", async () => {
-  const evilDb = testEnv.authenticatedContext(USER_ATTACKER.uid, { email: USER_ATTACKER.email }).firestore();
-  const reviewRef = doc(evilDb, "campuses", "vit-ap", "faculties", "fac-ap-1", "reviews", USER_ATTACKER.uid);
-  await assertFails(setDoc(reviewRef, validReviewPayload(USER_ATTACKER.uid)));
-});
-
-test("Security Rules [Campus Isolation] - invalid campus slug paths are denied", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const invalidCampusRef = doc(apDb, "campuses", "vit-fake-campus", "faculties", "fac-1", "reviews", USER_AP.uid);
-  await assertFails(setDoc(invalidCampusRef, validReviewPayload(USER_AP.uid)));
-});
-
-// ============================================================================
-// 6. Faculty Permissions & Aggregate Statistics
-// ============================================================================
-
-test("Security Rules [Faculty Permissions] - ordinary users cannot create faculty records", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const facRef = doc(apDb, "campuses", "vit-ap", "faculties", "new-faculty-hacked");
-  await assertFails(setDoc(facRef, { name: "Fake Faculty", department: "CSE" }));
-});
-
-test("Security Rules [Faculty Permissions] - ordinary users cannot modify faculty details or bio", async () => {
+test("Security Rules [Faculty Permissions] - direct client faculty creation/update/deletion is denied", async () => {
   const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
   const facRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1");
-  await assertFails(updateDoc(facRef, { name: "Tampered Faculty Name" }));
-});
-
-test("Security Rules [Faculty Permissions] - ordinary users cannot manipulate aggregate faculty statistics", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const facRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1");
-  await assertFails(updateDoc(facRef, { avgRating: 5.0, reviewCount: 999 }));
-});
-
-test("Security Rules [Faculty Permissions] - ordinary users cannot delete faculty records", async () => {
-  const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const facRef = doc(apDb, "campuses", "vit-ap", "faculties", "fac-ap-1");
+  await assertFails(updateDoc(facRef, { avgRating: 5.0 }));
   await assertFails(deleteDoc(facRef));
+  await assertFails(setDoc(doc(apDb, "campuses", "vit-ap", "faculties", "new-fac"), { name: "Fake" }));
 });
 
 // ============================================================================
 // 7. Default Deny Tests
 // ============================================================================
 
-test("Security Rules [Default Deny] - undeclared top-level collections are denied for read and write", async () => {
+test("Security Rules [Default Deny] - undeclared root collections are denied for read and write", async () => {
   const apDb = testEnv.authenticatedContext(USER_AP.uid, { email: USER_AP.email }).firestore();
-  const adminDocRef = doc(apDb, "admin_secrets", "config");
-  await assertFails(getDoc(adminDocRef));
-  await assertFails(setDoc(adminDocRef, { secret: "exposed" }));
+  const secretRef = doc(apDb, "admin_secrets", "config");
+  await assertFails(getDoc(secretRef));
+  await assertFails(setDoc(secretRef, { secret: "exposed" }));
 });

@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { FacultyRepository } from "@/repositories/faculty.repository";
 import { ReviewsRepository } from "@/repositories/reviews.repository";
-import { isValidCampus, getDualCampusOptions, getCampusBySlug, isDualCampusEmail } from "@/lib/campus";
+import { isValidCampus, getDualCampusOptions, getCampusBySlug, isDualCampusEmail, isCampusAuthorizedForEmail } from "@/lib/campus";
 import { getFacultyPhoto } from "@/lib/utils/faculty";
 import { getScoreColorClass } from "@/lib/utils/styling";
 import { formatCount } from "@/lib/utils/formatters";
@@ -115,14 +115,15 @@ export default function FacultyDetail() {
       });
   }
 
-  const visibleReviews = reviews.slice(0, visibleCount);
-  const hasMore = visibleCount < reviews.length;
-  const showSeeMore = reviews.length > REVIEWS_INITIAL && hasMore;
+  const activeReviews = reviews.filter((r) => r.status === "ACTIVE" || r.status === undefined);
+  const visibleReviews = activeReviews.slice(0, visibleCount);
+  const hasMore = visibleCount < activeReviews.length;
+  const showSeeMore = activeReviews.length > REVIEWS_INITIAL && hasMore;
 
   function loadMoreReviews() {
-    setVisibleCount((prev) => Math.min(prev + REVIEWS_PER_PAGE, reviews.length));
+    setVisibleCount((prev) => Math.min(prev + REVIEWS_PER_PAGE, activeReviews.length));
   }
-  const remainingCount = reviews.length - visibleCount;
+  const remainingCount = activeReviews.length - visibleCount;
 
   if (!validCampus) {
     return (
@@ -293,17 +294,17 @@ export default function FacultyDetail() {
                       </p>
                       <Star className="w-4 h-4 text-yellow-400" />
                       <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {r.overall}
+                        {r.ratings?.overall ?? r.overall}
                       </span>
                     </div>
                     <p className="text-gray-800 dark:text-gray-200 mb-3">
-                      {r.text}
+                      {r.comment || r.text}
                     </p>
                     <div className="flex flex-wrap gap-4 text-xs text-gray-600 dark:text-gray-400">
-                      <Metric icon={CalendarCheck} value={r.attendance} />
-                      <Metric icon={PenLine} value={r.correction} />
-                      <Metric icon={GraduationCap} value={r.teaching} />
-                      <Metric icon={Handshake} value={r.approachability} />
+                      <Metric icon={CalendarCheck} value={r.ratings?.attendance ?? r.attendance} />
+                      <Metric icon={PenLine} value={r.ratings?.correction ?? r.correction} />
+                      <Metric icon={GraduationCap} value={r.ratings?.teaching ?? r.teaching} />
+                      <Metric icon={Handshake} value={r.ratings?.approachability ?? r.approachability} />
                     </div>
                   </div>
                 ))}

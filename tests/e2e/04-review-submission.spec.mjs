@@ -1,6 +1,6 @@
 // @ts-check
 import { test, expect } from "@playwright/test";
-import { signInAsTestUser } from "./helpers.mjs";
+import { signInAsTestUser, getReviewsSection } from "./helpers.mjs";
 
 test.describe("Journey 4: Review Submission (Authenticated)", () => {
   test("unauthenticated user sees sign-in prompt instead of review form", async ({
@@ -54,10 +54,17 @@ test.describe("Journey 4: Review Submission (Authenticated)", () => {
     // Wait for submission to complete
     await expect(submitBtn).toHaveText(/submit review/i, { timeout: 15_000 });
 
-    // The review should now appear in the reviews list
+    // Form reset is verified independently of the list: empty textarea, disabled button
+    await expect(page.getByPlaceholder(/share your honest experience/i)).toHaveValue("", {
+      timeout: 10_000,
+    });
+    await expect(submitBtn).toBeDisabled();
+
+    // The review must be rendered inside the reviews list, not left in the form
     await expect(
-      page.getByText(
-        "This professor is outstanding. Clear explanations and very helpful during office hours."
+      getReviewsSection(page).getByText(
+        "This professor is outstanding. Clear explanations and very helpful during office hours.",
+        { exact: true }
       )
     ).toBeVisible({ timeout: 10_000 });
   });
@@ -130,12 +137,14 @@ test.describe("Journey 4: Review Submission (Authenticated)", () => {
     await expect(submitBtn).toBeEnabled();
     await submitBtn.click();
 
-    // Verify initial review is displayed
+    // Initial review is rendered inside the reviews list
+    const reviewsSection = getReviewsSection(page);
     await expect(
-      page.getByText("Initial review comment for Meena Patel.")
+      reviewsSection.getByText("Initial review comment for Meena Patel.", { exact: true })
     ).toBeVisible({ timeout: 10_000 });
 
-    // Ensure form has completed reset (submit button is disabled again)
+    // Form reset is verified independently: empty textarea and disabled button
+    await expect(textarea).toHaveValue("", { timeout: 5_000 });
     await expect(submitBtn).toBeDisabled({ timeout: 5_000 });
 
     // 2. Submit second review for same faculty (updates existing review)
@@ -148,9 +157,19 @@ test.describe("Journey 4: Review Submission (Authenticated)", () => {
     await expect(submitBtn).toBeEnabled();
     await submitBtn.click();
 
-    // Verify updated review is displayed
+    // The updated comment replaces the previous one in the reviews list
     await expect(
-      page.getByText("Updated review comment: Absolutely phenomenal teaching throughout!")
+      reviewsSection.getByText(
+        "Updated review comment: Absolutely phenomenal teaching throughout!",
+        { exact: true }
+      )
     ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      reviewsSection.getByText("Initial review comment for Meena Patel.", { exact: true })
+    ).toHaveCount(0);
+
+    // Form reset again after the update
+    await expect(textarea).toHaveValue("", { timeout: 5_000 });
+    await expect(submitBtn).toBeDisabled({ timeout: 5_000 });
   });
 });

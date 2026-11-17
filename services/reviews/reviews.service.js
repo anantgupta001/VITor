@@ -1,9 +1,13 @@
+
 /**
  * Reviews Business Logic Service.
- * Handles review validation, rating computations, aggregate statistics, and submission flow.
+ * Handles review validation, rating computations, aggregate statistics, and trusted API interactions.
  */
 import { ReviewsRepository } from "../../repositories/reviews.repository.js";
 import { FacultyRepository } from "../../repositories/faculty.repository.js";
+import { isCampusAuthorizedForEmail } from "../../lib/campus.js";
+import { getToken } from "firebase/app-check";
+import { appCheck } from "../../lib/firebase/client.js";
 
 export const MIN_COMMENT_LENGTH = 10;
 export const MAX_COMMENT_LENGTH = 1000;
@@ -32,7 +36,25 @@ export const ReviewsService = {
       return { valid: false, error: "Please sign in to submit a review." };
     }
 
-    if (!userCampus || userCampus !== campusSlug) {
+    if (!campusSlug) {
+      return {
+        valid: false,
+        error: "You can only rate faculty members from your own campus.",
+      };
+    }
+
+    if (userCampus === null || userCampus === "") {
+      return {
+        valid: false,
+        error: "You can only rate faculty members from your own campus.",
+      };
+    }
+
+    const isAuthorized = user.email
+      ? isCampusAuthorizedForEmail(user.email, campusSlug)
+      : Boolean(userCampus && userCampus === campusSlug);
+
+    if (!isAuthorized) {
       return {
         valid: false,
         error: "You can only rate faculty members from your own campus.",
@@ -87,11 +109,17 @@ export const ReviewsService = {
     let sumOverall = 0;
 
     for (const r of reviews) {
-      sumAttendance += Number(r.attendance) || 0;
-      sumCorrection += Number(r.correction) || 0;
-      sumTeaching += Number(r.teaching) || 0;
-      sumApproachability += Number(r.approachability) || 0;
-      sumOverall += Number(r.overall) || 0;
+      const attendance = r.ratings?.attendance ?? r.attendance;
+      const correction = r.ratings?.correction ?? r.correction;
+      const teaching = r.ratings?.teaching ?? r.teaching;
+      const approachability = r.ratings?.approachability ?? r.approachability;
+      const overall = r.ratings?.overall ?? r.overall;
+
+      sumAttendance += Number(attendance) || 0;
+      sumCorrection += Number(correction) || 0;
+      sumTeaching += Number(teaching) || 0;
+      sumApproachability += Number(approachability) || 0;
+      sumOverall += Number(overall) || 0;
     }
 
     return {
@@ -105,13 +133,133 @@ export const ReviewsService = {
   },
 
   /**
-   * Complete review submission pipeline:
-   * 1. Validate inputs
-   * 2. Calculate individual overall score
-   * 3. Persist anonymous review
-   * 4. Recalculate faculty aggregate stats and update faculty document
+   * Submits a review via the trusted backend API (Phase 6.1).
+   * Enforces server-side ID token verification, App Check verification,
+   * atomic transactions, sharding, idempotency, rolling-window rate limits,
+   * and optimistic concurrency.
    */
-  async submitReview({ campusSlug, facultyId, user, userCampus, ratings, comment }) {
+  async submitReviewApi({
+    campusSlug,
+    facultyId,
+    user,
+    userCampus,
+    ratings,
+    comment,
+    expectedVersion,
+    idempotencyKey,
+  }) {
+    if (!facultyId || typeof facultyId !== "string" || !facultyId.trim()) {
+      throw new Error("Invalid faculty ID specified.");
+    }
+
+    const validation = this.validateReview({
+      ratings,
+      comment,
+      user,
+      userCampus,
+      campusSlug,
+    });
+
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
+    // Get fresh Firebase Authentication ID token
+    const idToken =
+      typeof user.getIdToken === "function"
+        ? await user.getIdToken()
+        : user.token || "";
+
+    // Get Firebase App Check token
+    const appCheckToken = appCheck
+      ? (await getToken(appCheck, false)).token
+      : "";
+
+    const key =
+      idempotencyKey ||
+      (typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `idem-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+      "Idempotency-Key": key,
+      ...(appCheckToken
+        ? { "X-Firebase-AppCheck": appCheckToken }
+        : {}),
+    };
+
+    const res = await fetch("/api/reviews", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        campusSlug,
+        facultyId,
+        ratings,
+        comment: comment.trim(),
+        expectedVersion,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      const err = new Error(data.error || "Failed to submit review.");
+      err.code = data.code;
+      err.statusCode = res.status;
+      err.retryAfter = data.retryAfter;
+      err.currentVersion = data.currentVersion;
+      throw err;
+    }
+
+    // Re-fetch all reviews to ensure full fresh list
+    let allReviews = [];
+    try {
+      allReviews = await ReviewsRepository.getReviewsByFaculty(campusSlug, facultyId);
+    } catch {
+      // Fallback to returned review
+      if (data.review) allReviews = [data.review];
+    }
+
+    return {
+      success: true,
+      overall: data.overall,
+      updatedStats: data.updatedStats,
+      review: data.review,
+      reviews: allReviews,
+    };
+  },
+
+  /**
+   * Complete review submission pipeline.
+   * If running in the browser and auth token is available, delegates to trusted backend API.
+   * In local test runner, preserves direct repository call for test suite compatibility.
+   */
+  async submitReview({
+    campusSlug,
+    facultyId,
+    user,
+    userCampus,
+    ratings,
+    comment,
+    expectedVersion,
+    idempotencyKey,
+    useApi,
+  }) {
+    if (useApi || (typeof window !== "undefined" && typeof fetch === "function")) {
+      return this.submitReviewApi({
+        campusSlug,
+        facultyId,
+        user,
+        userCampus,
+        ratings,
+        comment,
+        expectedVersion,
+        idempotencyKey,
+      });
+    }
+
     if (!facultyId || typeof facultyId !== "string" || !facultyId.trim()) {
       throw new Error("Invalid faculty ID specified.");
     }
