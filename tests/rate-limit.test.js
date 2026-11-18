@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   evaluateAndConsumeSubmissionQuota,
-  DEFAULT_RATE_LIMIT_CONFIG,
   RateLimitExceededError,
 } from "../lib/server/rate-limit.js";
 

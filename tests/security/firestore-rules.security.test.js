@@ -22,7 +22,6 @@
  */
 
 import test from "node:test";
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "url";
@@ -57,10 +56,6 @@ const USER_AP = {
   uid: "student_ap_101",
   email: "student101@vitapstudent.ac.in",
 };
-const USER_BHOPAL = {
-  uid: "student_bhopal_202",
-  email: "student202@vitbhopal.ac.in",
-};
 const USER_VELLORE = {
   uid: "student_vellore_303",
   email: "student303@vitstudent.ac.in",
@@ -68,10 +63,6 @@ const USER_VELLORE = {
 const USER_CHENNAI = {
   uid: "student_chennai_404",
   email: "student404@vitstudent.ac.in",
-};
-const USER_ATTACKER = {
-  uid: "attacker_evil_666",
-  email: "hacker@evil.com",
 };
 
 function validReviewPayload(uid) {

@@ -1,16 +1,8 @@
 /**
  * Reviews Data Access Layer.
- * Interacts with `campuses/{campusSlug}/faculties/{facultyId}/reviews` in Firestore.
+ * Public review reads go through the trusted `GET /api/reviews` endpoint; all
+ * review writes go through `POST /api/reviews` (see ReviewsService).
  */
-import {
-  collection,
-  doc,
-  getDocs,
-  setDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db } from "../lib/firebase/client.js";
-
 export const ReviewsRepository = {
   /**
    * Fetch the publicly visible reviews for a faculty member (what the UI must use).
@@ -30,53 +22,5 @@ export const ReviewsRepository = {
     }
     const data = await res.json();
     return Array.isArray(data?.reviews) ? data.reviews : [];
-  },
-
-  /**
-   * Fetch all reviews for a faculty member directly from Firestore, in every status.
-   *
-   * NOT for UI use: production rules deny this read. Retained only for the
-   * non-browser fallback path in ReviewsService and the emulator integration tests
-   * (which run with permissive test rules). Use `getPublicReviews` in the app.
-   */
-  async getReviewsByFaculty(campusSlug, facultyId) {
-    if (!campusSlug || !facultyId) return [];
-    const ref = collection(
-      db,
-      "campuses",
-      campusSlug,
-      "faculties",
-      facultyId,
-      "reviews"
-    );
-    const snap = await getDocs(ref);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  },
-
-  /**
-   * Create or update a review document.
-   */
-  async saveReview(campusSlug, facultyId, userId, reviewData) {
-    if (!campusSlug || !facultyId || !userId) {
-      throw new Error("Missing parameters to save review");
-    }
-    const ref = doc(
-      db,
-      "campuses",
-      campusSlug,
-      "faculties",
-      facultyId,
-      "reviews",
-      userId
-    );
-
-    const payload = {
-      ...reviewData,
-      userId,
-      updatedAt: serverTimestamp(),
-    };
-
-    await setDoc(ref, payload, { merge: true });
-    return payload;
   },
 };

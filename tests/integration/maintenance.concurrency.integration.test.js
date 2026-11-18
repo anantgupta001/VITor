@@ -27,7 +27,6 @@ import {
   enterWriter,
   exitWriter,
   getActiveWriters,
-  waitForWritersDrain,
   MAINTENANCE_STATES,
   MaintenanceError,
 } from "../../lib/server/maintenance.js";
@@ -345,7 +344,7 @@ test("Scenario 5: CLOSED cannot be reached while a protected writer remains acti
   assert.equal(currentGate.status, MAINTENANCE_STATES.CLOSING, "Gate must remain in CLOSING after drain timeout");
   assert.notEqual(currentGate.status, MAINTENANCE_STATES.CLOSED, "Gate must NOT transition to CLOSED while writer is active");
 
-  // Reconciliation/migration assert must fail
+  // Maintenance operations guarded by assertMaintenanceGateClosed must refuse to proceed
   await assert.rejects(
     () => assertMaintenanceGateClosed(adminDb),
     /Gate must be strictly CLOSED before proceeding/

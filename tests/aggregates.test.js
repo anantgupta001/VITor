@@ -11,7 +11,6 @@ import {
   extractRatings,
   calculateAggregateDelta,
   combineShards,
-  buildShardIncrementPayload,
 } from "../lib/server/aggregates.js";
 
 // ============================================================================

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   checkMaintenanceGate,
   setMaintenanceGateState,
-  getMaintenanceGateState,
   assertMaintenanceGateClosed,
   drainAndCloseMaintenanceGate,
   enterWriter,

@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { FacultyRepository } from "@/repositories/faculty.repository";
 import { ReviewsRepository } from "@/repositories/reviews.repository";
-import { isValidCampus, getDualCampusOptions, getCampusBySlug, isDualCampusEmail, isCampusAuthorizedForEmail } from "@/lib/campus";
+import { isValidCampus, getDualCampusOptions, getCampusBySlug, isDualCampusEmail } from "@/lib/campus";
 import { getFacultyPhoto } from "@/lib/utils/faculty";
 import { getScoreColorClass } from "@/lib/utils/styling";
 import { formatCount } from "@/lib/utils/formatters";

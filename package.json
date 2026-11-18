@@ -1,4 +1,3 @@
-
 {
   "name": "vitor",
   "version": "0.1.0",
@@ -15,14 +14,8 @@
     "test:security": "node scripts/run-security-tests.mjs"
   },
   "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@mui/icons-material": "^7.3.6",
-    "@mui/material": "^7.3.6",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
-    "cheerio": "^1.1.2",
-    "dotenv": "^17.2.3",
     "firebase": "^12.7.0",
     "firebase-admin": "^13.6.0",
     "lucide-react": "^0.562.0",

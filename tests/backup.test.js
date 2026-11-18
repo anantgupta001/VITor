@@ -20,7 +20,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync, readFileSync, mkdirSync, rmSync, existsSync } from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import os from "os";
 
 import {
@@ -41,9 +40,6 @@ import {
 } from "../scripts/verify-backup.mjs";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(__dirname, "..");
 
 /** Saves and restores environment variables around a test body. */
 function withEnv(overrides, fn) {

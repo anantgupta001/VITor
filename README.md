@@ -36,7 +36,7 @@ Students can anonymously rate and review faculty members based on attendance, co
 | Layer | Technologies |
 |---|---|
 | Frontend | Next.js 16, React 19 |
-| Styling & UI | Tailwind CSS, Material UI, Lucide |
+| Styling & UI | Tailwind CSS, Lucide |
 | Authentication | Firebase Authentication |
 | Database | Cloud Firestore |
 | Architecture | Service and Repository Pattern |

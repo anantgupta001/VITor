@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { POST as reviewPost, DELETE as reviewDelete } from "../app/api/reviews/route.js";
-import { POST as restorePost } from "../app/api/reviews/restore/route.js";
 import { POST as moderatePost } from "../app/api/reviews/moderate/route.js";
 import { adminAuth, adminDb, adminAppCheck } from "../lib/firebase/admin.js";
 import { ReviewsTransactionCoordinator } from "../lib/server/reviews-transaction.js";

@@ -2,8 +2,8 @@
 
 import { useId, useState } from "react";
 import { useAuth } from "@/context/auth-context";
-import { ReviewsService, MIN_COMMENT_LENGTH } from "@/services/reviews/reviews.service";
-import { isCampusAuthorizedForEmail } from "@/lib/campus";
+import { ReviewsService } from "@/services/reviews/reviews.service";
+import { MIN_COMMENT_LENGTH } from "@/lib/constants/review.constants";
 
 import {
   CalendarCheck,

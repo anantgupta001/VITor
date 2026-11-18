@@ -7,7 +7,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  updateDoc,
 } from "firebase/firestore";
 import { db } from "../lib/firebase/client.js";
 
@@ -32,12 +31,4 @@ export const FacultyRepository = {
     return snap.exists() ? { id: snap.id, ...snap.data() } : null;
   },
 
-  /**
-   * Update aggregate rating stats on a faculty document.
-   */
-  async updateFacultyStats(campusSlug, facultyId, stats) {
-    if (!campusSlug || !facultyId || !stats) return;
-    const ref = doc(db, "campuses", campusSlug, "faculties", facultyId);
-    await updateDoc(ref, stats);
-  },
 };

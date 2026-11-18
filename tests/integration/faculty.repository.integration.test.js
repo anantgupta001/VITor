@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { ensureEmulatorConnection, db } from "./helpers/setup.js";
 import { clearCollection, facultiesRef } from "./helpers/firestore-helpers.js";
 import { FacultyRepository } from "../../repositories/faculty.repository.js";
@@ -116,40 +116,4 @@ test("FacultyRepository [INT] - getFacultyById returns null when params are miss
   assert.equal(await FacultyRepository.getFacultyById(null, "fac-1"), null);
   assert.equal(await FacultyRepository.getFacultyById(CAMPUS, null), null);
   assert.equal(await FacultyRepository.getFacultyById(null, null), null);
-});
-
-// ───────────────────────────────────────────────────────────────────────────────
-// updateFacultyStats
-// ───────────────────────────────────────────────────────────────────────────────
-
-test("FacultyRepository [INT] - updateFacultyStats persists stats to Firestore and can be read back", async () => {
-  await clearCollection(facultiesRef(CAMPUS));
-  await seedFaculty("fac-stats-1", { name: "Dr. Stats Test", department: "IT" });
-
-  const newStats = {
-    avgRating: 4.25,
-    avgAttendance: 4.1,
-    avgCorrection: 4.3,
-    avgTeaching: 4.5,
-    avgApproachability: 4.1,
-    reviewCount: 5,
-  };
-
-  await FacultyRepository.updateFacultyStats(CAMPUS, "fac-stats-1", newStats);
-
-  // Read back
-  const snap = await getDoc(doc(db, "campuses", CAMPUS, "faculties", "fac-stats-1"));
-  assert.ok(snap.exists());
-  const data = snap.data();
-  assert.equal(data.avgRating, 4.25);
-  assert.equal(data.avgAttendance, 4.1);
-  assert.equal(data.reviewCount, 5);
-  assert.equal(data.name, "Dr. Stats Test", "original fields should be preserved");
-});
-
-test("FacultyRepository [INT] - updateFacultyStats does nothing when params are missing", async () => {
-  // Should not throw
-  await FacultyRepository.updateFacultyStats(null, "fac-1", { avgRating: 1 });
-  await FacultyRepository.updateFacultyStats(CAMPUS, null, { avgRating: 1 });
-  await FacultyRepository.updateFacultyStats(CAMPUS, "fac-1", null);
 });

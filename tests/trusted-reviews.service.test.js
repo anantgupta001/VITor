@@ -5,7 +5,7 @@ import { adminDb } from "../lib/firebase/admin.js";
 import { REVIEW_STATUS } from "../lib/server/aggregates.js";
 import { MaintenanceError } from "../lib/server/maintenance.js";
 import { RateLimitExceededError } from "../lib/server/rate-limit.js";
-import { IdempotencyConflictError, computePayloadHash } from "../lib/server/idempotency.js";
+import { computePayloadHash } from "../lib/server/idempotency.js";
 import { ConcurrencyConflictError } from "../lib/server/concurrency.js";
 
 // ============================================================================

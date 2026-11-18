@@ -7,7 +7,6 @@ import { ReviewsService } from "@/services/reviews/reviews.service";
 
 // Mock ReviewsService
 vi.mock("@/services/reviews/reviews.service", () => ({
-  MIN_COMMENT_LENGTH: 10,
   ReviewsService: {
     submitReview: vi.fn(),
   },

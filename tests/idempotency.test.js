@@ -102,7 +102,6 @@ test("Idempotency - evaluateReceipt throws 409 conflict when payload hash mismat
 });
 
 test("Idempotency - buildReceiptPayload sets 30-day retention expiration", () => {
-  const now = Date.now();
   const receipt = buildReceiptPayload({
     idempotencyKey: "test-key-99",
     userId: "user-42",
