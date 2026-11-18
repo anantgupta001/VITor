@@ -29,6 +29,8 @@ export default function CampusHome() {
   const [faculties, setFaculties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [draftQuery, setDraftQuery] = useState(activeQuery);
+  const [previousActiveQuery, setPreviousActiveQuery] = useState(activeQuery);
+  const [previousCampusSlug, setPreviousCampusSlug] = useState(campusSlug);
   const [loadError, setLoadError] = useState(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const pageBeforeSearch = useRef(1);
@@ -37,17 +39,22 @@ export default function CampusHome() {
   const campus = getCampusBySlug(campusSlug);
   const validCampus = isValidCampus(campusSlug);
 
-  // Sync draft query when URL activeQuery changes (e.g. browser back/forward)
-  useEffect(() => {
+  // Synchronize URL-driven search state and reset fetch state on campus changes.
+  if (activeQuery !== previousActiveQuery) {
+    setPreviousActiveQuery(activeQuery);
     setDraftQuery(activeQuery);
-  }, [activeQuery]);
+  }
+
+  if (campusSlug !== previousCampusSlug) {
+    setPreviousCampusSlug(campusSlug);
+    if (validCampus && campusSlug) setLoading(true);
+    setLoadError(null);
+  }
 
   // Fetch faculty list for the current campus (one-time fetch)
   useEffect(() => {
     if (!validCampus || !campusSlug) return;
     let cancelled = false;
-    setLoading(true);
-    setLoadError(null);
 
     FacultyRepository.getFaculties(campusSlug)
       .then((data) => {

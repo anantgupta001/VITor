@@ -19,7 +19,7 @@
     "firebase": "^12.7.0",
     "firebase-admin": "^13.6.0",
     "lucide-react": "^0.562.0",
-    "next": "16.1.1",
+    "next": "^16.4.6",
     "next-themes": "^0.4.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
@@ -33,11 +33,15 @@
     "@vitejs/plugin-react": "^6.3.0",
     "autoprefixer": "^10.4.23",
     "eslint": "^9",
-    "eslint-config-next": "16.1.1",
+    "eslint-config-next": "^16.4.6",
     "firebase-tools": "^15.5.1",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",
     "vitest": "^4.1.12"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.14.7",
+    "uuid": "11.1.1"
   }
 }

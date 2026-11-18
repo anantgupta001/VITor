@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
@@ -51,6 +51,32 @@ export default function FacultyDetail() {
   const [refreshingReviews, setRefreshingReviews] = useState(false);
 
   const validCampus = isValidCampus(campusSlug);
+  const facultyKey = `${campusSlug || ""}:${id || ""}`;
+  const [previousFacultyKey, setPreviousFacultyKey] = useState(facultyKey);
+  const requestVersionRef = useRef(0);
+
+  // Invalidate pending requests whenever the selected faculty changes.
+  useEffect(() => {
+    requestVersionRef.current += 1;
+
+    return () => {
+      requestVersionRef.current += 1;
+    };
+  }, [facultyKey]);
+
+  // Reset faculty and review state when the selected faculty changes.
+  if (facultyKey !== previousFacultyKey) {
+    setPreviousFacultyKey(facultyKey);
+    setFaculty(null);
+    setReviews([]);
+    setNextCursor(null);
+    setHasMore(false);
+    setLoadMoreError(null);
+    setUnpaginatedReviews([]);
+    setLoading(true);
+    setLoadingMore(false);
+    setRefreshingReviews(false);
+  }
 
   useEffect(() => {
     if (!id || !campusSlug || !validCampus) return;
@@ -93,13 +119,6 @@ export default function FacultyDetail() {
     };
   }, [id, campusSlug, validCampus]);
 
-  useEffect(() => {
-    setReviews([]);
-    setNextCursor(null);
-    setHasMore(false);
-    setLoadMoreError(null);
-    setUnpaginatedReviews([]);
-  }, [id, campusSlug]);
 
   /**
    * Called by ReviewForm after a successful submission.
@@ -130,8 +149,12 @@ export default function FacultyDetail() {
 
     // Fallback: Re-fetch first page so the new entry is visible and pagination is reset
     setRefreshingReviews(true);
+    const requestVersion = requestVersionRef.current;
+
     ReviewsRepository.getPublicReviews(campusSlug, id, { limit: REVIEWS_PER_PAGE })
       .then((fresh) => {
+        if (requestVersion !== requestVersionRef.current) return;
+
         if (Array.isArray(fresh)) {
           const active = fresh.filter((r) => r.status === "ACTIVE" || r.status === undefined);
           setUnpaginatedReviews(active);
@@ -146,10 +169,14 @@ export default function FacultyDetail() {
         }
       })
       .catch((err) => {
+        if (requestVersion !== requestVersionRef.current) return;
+
         console.error("Failed to refresh reviews after submission:", err);
       })
       .finally(() => {
-        setRefreshingReviews(false);
+        if (requestVersion === requestVersionRef.current) {
+          setRefreshingReviews(false);
+        }
       });
   }
 
@@ -178,12 +205,15 @@ export default function FacultyDetail() {
 
     setLoadingMore(true);
     setLoadMoreError(null);
+    const requestVersion = requestVersionRef.current;
 
     try {
       const res = await ReviewsRepository.getPublicReviews(campusSlug, id, {
         cursor: nextCursor,
         limit: REVIEWS_PER_PAGE,
       });
+
+      if (requestVersion !== requestVersionRef.current) return;
 
       const incomingReviews = Array.isArray(res)
         ? res
@@ -200,10 +230,14 @@ export default function FacultyDetail() {
       setNextCursor(res?.nextCursor || null);
       setHasMore(Boolean(res?.hasMore));
     } catch (err) {
+      if (requestVersion !== requestVersionRef.current) return;
+
       console.error("Failed to load more reviews:", err);
       setLoadMoreError("Failed to load more reviews. Please try again.");
     } finally {
-      setLoadingMore(false);
+      if (requestVersion === requestVersionRef.current) {
+        setLoadingMore(false);
+      }
     }
   }
 
