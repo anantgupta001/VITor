@@ -1,167 +1,89 @@
-# 🎓 VITor — Faculty Rating Platform for VIT
 
-**VITor** is a student-driven faculty rating platform for students across VIT Vellore, Chennai, Bhopal, and AP campuses.
+# 🎓 VITor — Faculty Review Platform
 
-Students can anonymously rate and review faculty members based on attendance, correction, teaching, and approachability — helping peers make informed academic decisions.
+VITor is a student-driven faculty review platform for VIT Vellore, Chennai, Bhopal, and AP campuses.
 
----
+It helps students make informed faculty choices during FFCS through anonymous reviews and ratings.
+
+**Built for students, by a student.**
 
 ## ✨ Features
 
-- 🏫 Multi-campus support — Vellore, Chennai, Bhopal, and AP.
-- 🔐 College email authentication using Google Sign-In.
+- 🏫 Support for all 4 VIT campuses.
+- 🔐 Google Sign-In for eligible VIT students.
 - 🕵️ Anonymous faculty reviews.
 - ⭐ Four-criteria faculty rating system.
-- 📊 Faculty average ratings and review counts.
 - 🔎 Faculty search and discovery.
-- 📄 Paginated reviews.
+- 📄 Secure cursor-based review pagination.
+- 📊 Faculty ratings and review statistics.
 - 🌙 Dark and light themes.
-- 📱 Responsive design for mobile and desktop.
-
----
-
-## 🧠 Evaluation Criteria
-
-| Criteria | What Students Evaluate |
-|---|---|
-| 📅 Attendance | Attendance flexibility, fairness, and understanding of genuine concerns. |
-| 📝 Correction | Fair evaluation, timely correction, and clarity of marking. |
-| 🎓 Teaching | Concept clarity, teaching pace, and explanation quality. |
-| 🤝 Approachability | Accessibility, guidance, and willingness to resolve doubts. |
-
----
+- 📱 Responsive UI.
 
 ## 🛠 Tech Stack
 
-| Layer | Technologies |
-|---|---|
-| Frontend | Next.js 16, React 19 |
-| Styling & UI | Tailwind CSS, Lucide |
-| Authentication | Firebase Authentication |
-| Database | Cloud Firestore |
-| Architecture | Service and Repository Pattern |
-| Hosting | Vercel |
+- **Frontend:** Next.js 16, React 19, Tailwind CSS
+- **Authentication:** Firebase Authentication
+- **Database:** Cloud Firestore
+- **Backend:** Next.js API Routes, Firebase Admin SDK
+- **Testing:** Node.js Test Runner, Vitest, Firebase Emulator, Playwright
+- **Hosting:** Vercel
 
----
+## 🔒 Security & Reliability
 
-## 🏗 Architecture
-
-| Layer | Responsibility |
-|---|---|
-| Presentation | Next.js pages, React components, and context providers. |
-| Service | Business logic, input validation, and application workflows. |
-| Repository | Firestore data access and database operations. |
-| Infrastructure | Firebase Authentication, Firestore, and security rules. |
-
----
-
-## 🔒 Privacy & Security
-
-- Reviews are publicly anonymous; Firebase UID is used internally for ownership validation.
-- Only eligible VIT student accounts can submit reviews.
-- One review per user per faculty, with update support.
-- Firestore security rules enforce ownership, campus authorization, and data validation.
-- Strict validation for ratings, review text, and user profiles.
-- Default-deny Firestore access policy and HTTP security headers.
-
----
+- Server-side authentication and authorization.
+- Transaction-safe review operations.
+- Input validation, rate limiting, and idempotency protection.
+- Firestore security rules with restricted client-side writes.
+- Secure review ownership and anonymous public responses.
+- Automated backup, migration verification, and recovery support.
+- Application logging and security headers.
 
 ## 🧪 Testing
 
-VITor includes automated testing across multiple layers.
+VITor includes automated unit, integration, component, security, and end-to-end tests.
 
-| Testing Layer | Framework | Tests |
-|---|---|---:|
-| Unit | Node.js Test Runner | 87 |
-| Integration | Firebase Emulator | 37 |
-| Component | Vitest + Testing Library | 72 |
-| End-to-End | Playwright | 25 |
-| Security | Firebase Rules Unit Testing | 37 |
-| **Total** | | **258** |
-
-### Run Tests
+Run the test suites:
 
 ```bash
 npm test
 npm run test:integration
 npm run test:components
-npm run test:e2e
 npm run test:security
+npm run test:e2e
 ```
 
-> **Known issue: `npm run test:e2e` (Turbopack startup timeout).** The official runner (`scripts/run-e2e-tests.mjs`) starts `next dev` on port 3099 with the default Turbopack bundler. On the development machine, the dev server did not become ready within the runner's 60-second startup window on repeated attempts, so the official runner is currently blocked. A temporary runner that used `next dev --webpack` ran the complete E2E suite and passed 25/25. That temporary runner has been removed, and the official runner and its default bundler are unchanged. Until the Turbopack timeout is resolved, E2E results from the official command should not be treated as a passing run.
-
-### Additional Checks
+Additional checks:
 
 ```bash
 npm run lint
 npm run build
 ```
 
----
-
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - Node.js and npm
-- A Firebase project with Authentication and Cloud Firestore enabled
+- Firebase project with Authentication and Cloud Firestore enabled
 - Google Sign-In configured in Firebase
 
-### 1. Clone the Repository
+### Installation
 
 ```bash
-git clone https://github.com/anantgupta001/vitor.git
-cd vitor
-```
-
-### 2. Install Dependencies
-
-```bash
+git clone https://github.com/anantgupta001/VITor.git
+cd VITor
 npm install
 ```
 
-### 3. Configure Environment Variables
+Create `.env.local` using `.env.example` and configure the required Firebase environment variables.
 
-Create `.env.local` in the project root:
-
-```env
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-```
-
-Never commit `.env.local` or private credentials.
-
-### 4. Run Locally
+Start the development server:
 
 ```bash
 npm run dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000).
-
----
-
-## 🌍 Deployment
-
-VITor is configured for deployment on [Vercel](https://vercel.com).
-
-1. Import the GitHub repository into Vercel.
-2. Add the required Firebase environment variables.
-3. Deploy the application.
-4. Ensure Firebase Authentication domains and Firestore security rules are configured for production.
-
-To deploy Firestore rules:
-
-```bash
-firebase deploy --only firestore:rules --project YOUR_FIREBASE_PROJECT_ID
-```
-
----
+Open [http://localhost:3000](http://localhost:3000).
 
 ## 🤝 Contributing
 
@@ -170,20 +92,15 @@ Contributions are welcome!
 1. Fork the repository.
 2. Create a feature branch.
 3. Make your changes and add relevant tests.
-4. Commit and push your changes.
-5. Open a Pull Request.
+4. Open a Pull Request.
 
-Please follow the existing architecture, maintain readable code, and never commit secrets or credentials.
-
----
+Please follow the existing code structure and never commit secrets or credentials.
 
 ## 📜 Disclaimer
 
-VITor is an independent student initiative and is **not officially affiliated with Vellore Institute of Technology (VIT) or any of its campuses**.
+VITor is an independent student initiative and is not officially affiliated with Vellore Institute of Technology (VIT).
 
-All reviews reflect individual student opinions and experiences.
-
----
+Reviews represent individual student opinions and experiences.
 
 ## 👨‍💻 Author
 
@@ -193,10 +110,4 @@ All reviews reflect individual student opinions and experiences.
 
 If you find VITor useful, consider giving the repository a ⭐.
 
-**Built with ❤️ by students, for students.**
-
-## 🔒 Security headers & CSP
-
-`next.config.mjs` sends X-Frame-Options, X-Content-Type-Options, Referrer-Policy and Permissions-Policy everywhere, plus HSTS (`max-age=31536000`) and a CSP in **production builds only**.
-The CSP is sent as `Content-Security-Policy-Report-Only` by default. After verifying Google sign-in, review submission and App Check on the deployed site with the browser console open (no CSP violations), rebuild with `CSP_MODE=enforce` to enforce it.
-Copy `.env.example` to `.env.local` for the list of required environment variables.
+**Built with ❤️ for students, by a student.**
