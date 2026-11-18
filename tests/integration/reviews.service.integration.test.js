@@ -89,7 +89,8 @@ test("ReviewsService [INT E2E] - complete review submission workflow", async () 
   assert.equal(result.overall, expectedOverall);
 
   // 4. Verify review document was actually persisted in Firestore
-  const savedReview = await ReviewsRepository.getUserReview(CAMPUS, facultyId, user.uid);
+  const savedSnap = await getDoc(doc(db, "campuses", CAMPUS, "faculties", facultyId, "reviews", user.uid));
+  const savedReview = savedSnap.exists() ? { id: savedSnap.id, ...savedSnap.data() } : null;
   assert.ok(savedReview !== null, "review document should exist in Firestore");
   assert.equal(savedReview.userId, user.uid);
   assert.equal(savedReview.text, comment.trim());

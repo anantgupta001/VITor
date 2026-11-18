@@ -5,7 +5,6 @@
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   setDoc,
   serverTimestamp,
@@ -52,24 +51,6 @@ export const ReviewsRepository = {
     );
     const snap = await getDocs(ref);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  },
-
-  /**
-   * Fetch a specific user's review for a faculty member.
-   */
-  async getUserReview(campusSlug, facultyId, userId) {
-    if (!campusSlug || !facultyId || !userId) return null;
-    const ref = doc(
-      db,
-      "campuses",
-      campusSlug,
-      "faculties",
-      facultyId,
-      "reviews",
-      userId
-    );
-    const snap = await getDoc(ref);
-    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
   },
 
   /**

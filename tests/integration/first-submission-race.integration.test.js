@@ -44,10 +44,6 @@ test("F-04: concurrent first submissions keep exactly one review and consistent 
 
     const ok = results.filter((r) => r.status === "fulfilled").map((r) => r.value);
     const failed = results.filter((r) => r.status === "rejected");
-    console.log(
-      `round ${round}:`,
-      results.map((r) => (r.status === "fulfilled" ? `${r.value.statusCode} v${r.value.version}` : `ERR ${r.reason.code || r.reason.message}`)).join(" | ")
-    );
     assert.equal(failed.length, 0, "neither request should error");
 
     // Exactly one review document, for the author.

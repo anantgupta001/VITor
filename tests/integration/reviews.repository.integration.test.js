@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { ensureEmulatorConnection, db } from "./helpers/setup.js";
 import { clearCollection, reviewsRef, facultiesRef } from "./helpers/firestore-helpers.js";
 import { ReviewsRepository } from "../../repositories/reviews.repository.js";
@@ -126,36 +126,11 @@ test("ReviewsRepository [INT] - campus-specific review paths are isolated", asyn
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
-// getUserReview
+// getUserReview (removed)
 // ───────────────────────────────────────────────────────────────────────────────
 
-test("ReviewsRepository [INT] - getUserReview returns null for non-existent review", async () => {
-  const result = await ReviewsRepository.getUserReview(CAMPUS, FACULTY_A, "no-such-user");
-  assert.equal(result, null);
-});
-
-test("ReviewsRepository [INT] - getUserReview returns null when params are missing", async () => {
-  assert.equal(await ReviewsRepository.getUserReview(null, FACULTY_A, "user-x"), null);
-  assert.equal(await ReviewsRepository.getUserReview(CAMPUS, null, "user-x"), null);
-  assert.equal(await ReviewsRepository.getUserReview(CAMPUS, FACULTY_A, null), null);
-});
-
-test("ReviewsRepository [INT] - getUserReview fetches the specific user review", async () => {
-  await clearCollection(reviewsRef(CAMPUS, FACULTY_A));
-  await seedFaculty(CAMPUS, FACULTY_A);
-  await setDoc(doc(db, "campuses", CAMPUS, "faculties", FACULTY_A, "reviews", "user-get-1"), {
-    user: "Anonymous User",
-    text: "Very helpful faculty.",
-    userId: "user-get-1",
-    overall: 4.5,
-  });
-
-  const result = await ReviewsRepository.getUserReview(CAMPUS, FACULTY_A, "user-get-1");
-  assert.ok(result !== null);
-  assert.equal(result.id, "user-get-1");
-  assert.equal(result.userId, "user-get-1");
-  assert.equal(result.text, "Very helpful faculty.");
-  assert.equal(result.overall, 4.5);
+test("ReviewsRepository [INT] - getUserReview is not exposed on repository", () => {
+  assert.equal(ReviewsRepository.getUserReview, undefined);
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -191,8 +166,9 @@ test("ReviewsRepository [INT] - saveReview persists review document to emulator"
 
   await ReviewsRepository.saveReview(CAMPUS, FACULTY_A, userId, reviewData);
 
-  // Verify via getUserReview
-  const saved = await ReviewsRepository.getUserReview(CAMPUS, FACULTY_A, userId);
+  // Verify via getDoc
+  const snap = await getDoc(doc(db, "campuses", CAMPUS, "faculties", FACULTY_A, "reviews", userId));
+  const saved = snap.exists() ? { id: snap.id, ...snap.data() } : null;
   assert.ok(saved !== null);
   assert.equal(saved.id, userId);
   assert.equal(saved.userId, userId);
@@ -213,7 +189,8 @@ test("ReviewsRepository [INT] - saveReview adds userId field to saved document",
     overall: 3,
   });
 
-  const saved = await ReviewsRepository.getUserReview(CAMPUS, FACULTY_A, userId);
+  const snap = await getDoc(doc(db, "campuses", CAMPUS, "faculties", FACULTY_A, "reviews", userId));
+  const saved = snap.exists() ? { id: snap.id, ...snap.data() } : null;
   assert.equal(saved.userId, userId);
 });
 
