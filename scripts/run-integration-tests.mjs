@@ -42,6 +42,7 @@ if (process.platform === "win32") {
 process.env.GCLOUD_PROJECT = "demo-vitor-test";
 process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "demo-vitor-test";
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8085";
+process.env.CURSOR_SECRET = process.env.CURSOR_SECRET || "vitor_strong_cursor_secret_key_at_least_32_bytes_2026_test";
 
 // ── Collect integration test files ───────────────────────────────────────────
 const integrationDir = path.join(root, "tests", "integration");

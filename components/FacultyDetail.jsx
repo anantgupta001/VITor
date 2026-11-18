@@ -43,7 +43,11 @@ export default function FacultyDetail() {
   const [faculty, setFaculty] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [visibleCount, setVisibleCount] = useState(REVIEWS_INITIAL);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(null);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [unpaginatedReviews, setUnpaginatedReviews] = useState([]);
   const [refreshingReviews, setRefreshingReviews] = useState(false);
 
   const validCampus = isValidCampus(campusSlug);
@@ -56,12 +60,24 @@ export default function FacultyDetail() {
       try {
         const [facultyData, reviewsData] = await Promise.all([
           FacultyRepository.getFacultyById(campusSlug, id),
-          ReviewsRepository.getPublicReviews(campusSlug, id),
+          ReviewsRepository.getPublicReviews(campusSlug, id, { limit: REVIEWS_PER_PAGE }),
         ]);
 
         if (!cancelled) {
           setFaculty(facultyData);
-          setReviews(reviewsData);
+          if (Array.isArray(reviewsData)) {
+            // Backward-compatibility fallback if a caller or mock returns an unpaginated array
+            const active = reviewsData.filter((r) => r.status === "ACTIVE" || r.status === undefined);
+            setUnpaginatedReviews(active);
+            setReviews(active.slice(0, REVIEWS_INITIAL));
+            setNextCursor(null);
+            setHasMore(active.length > REVIEWS_INITIAL);
+          } else {
+            setUnpaginatedReviews([]);
+            setReviews(Array.isArray(reviewsData?.reviews) ? reviewsData.reviews : []);
+            setNextCursor(reviewsData?.nextCursor || null);
+            setHasMore(Boolean(reviewsData?.hasMore));
+          }
         }
       } catch (err) {
         console.error("Failed to load faculty details:", err);
@@ -78,15 +94,17 @@ export default function FacultyDetail() {
   }, [id, campusSlug, validCampus]);
 
   useEffect(() => {
-    setVisibleCount(REVIEWS_INITIAL);
-  }, [id]);
+    setReviews([]);
+    setNextCursor(null);
+    setHasMore(false);
+    setLoadMoreError(null);
+    setUnpaginatedReviews([]);
+  }, [id, campusSlug]);
 
   /**
    * Called by ReviewForm after a successful submission.
    * - Merges updated aggregate stats into faculty state immediately (no refetch needed).
-   * - Uses already fetched review list from submitReview to avoid duplicate fetches,
-   *   or falls back to fetching fresh reviews if not provided.
-   * - Resets visibleCount so the user sees the list from the top (consistent UX).
+   * - Re-fetches the initial page of reviews to reset cursor and ensure consistent pagination.
    */
   function handleReviewSubmitted({ updatedStats, reviews: freshReviews } = {}) {
     // Update faculty score stats immediately from the already-computed result
@@ -95,17 +113,37 @@ export default function FacultyDetail() {
     }
 
     if (freshReviews) {
-      setReviews(freshReviews);
-      setVisibleCount(REVIEWS_INITIAL);
+      if (Array.isArray(freshReviews)) {
+        const active = freshReviews.filter((r) => r.status === "ACTIVE" || r.status === undefined);
+        setUnpaginatedReviews(active);
+        setReviews(active.slice(0, REVIEWS_INITIAL));
+        setNextCursor(null);
+        setHasMore(active.length > REVIEWS_INITIAL);
+      } else {
+        setUnpaginatedReviews([]);
+        setReviews(Array.isArray(freshReviews?.reviews) ? freshReviews.reviews : []);
+        setNextCursor(freshReviews?.nextCursor || null);
+        setHasMore(Boolean(freshReviews?.hasMore));
+      }
       return;
     }
 
-    // Fallback: Re-fetch reviews so the new entry is visible and ordering is authoritative
+    // Fallback: Re-fetch first page so the new entry is visible and pagination is reset
     setRefreshingReviews(true);
-    ReviewsRepository.getPublicReviews(campusSlug, id)
+    ReviewsRepository.getPublicReviews(campusSlug, id, { limit: REVIEWS_PER_PAGE })
       .then((fresh) => {
-        setReviews(fresh);
-        setVisibleCount(REVIEWS_INITIAL);
+        if (Array.isArray(fresh)) {
+          const active = fresh.filter((r) => r.status === "ACTIVE" || r.status === undefined);
+          setUnpaginatedReviews(active);
+          setReviews(active.slice(0, REVIEWS_INITIAL));
+          setNextCursor(null);
+          setHasMore(active.length > REVIEWS_INITIAL);
+        } else {
+          setUnpaginatedReviews([]);
+          setReviews(Array.isArray(fresh?.reviews) ? fresh.reviews : []);
+          setNextCursor(fresh?.nextCursor || null);
+          setHasMore(Boolean(fresh?.hasMore));
+        }
       })
       .catch((err) => {
         console.error("Failed to refresh reviews after submission:", err);
@@ -116,14 +154,65 @@ export default function FacultyDetail() {
   }
 
   const activeReviews = reviews.filter((r) => r.status === "ACTIVE" || r.status === undefined);
-  const visibleReviews = activeReviews.slice(0, visibleCount);
-  const hasMore = visibleCount < activeReviews.length;
-  const showSeeMore = activeReviews.length > REVIEWS_INITIAL && hasMore;
+  const visibleReviews = activeReviews;
+  const showSeeMore = hasMore;
 
-  function loadMoreReviews() {
-    setVisibleCount((prev) => Math.min(prev + REVIEWS_PER_PAGE, activeReviews.length));
+  async function loadMoreReviews() {
+    if (loadingMore || !hasMore) return;
+
+    // If an unpaginated array was supplied by mock or legacy caller
+    if (!nextCursor && unpaginatedReviews.length > visibleReviews.length) {
+      const nextBatch = unpaginatedReviews.slice(
+        visibleReviews.length,
+        visibleReviews.length + REVIEWS_PER_PAGE
+      );
+      setReviews((prev) => [...prev, ...nextBatch]);
+      setHasMore(unpaginatedReviews.length > visibleReviews.length + nextBatch.length);
+      return;
+    }
+
+    if (!nextCursor) {
+      setHasMore(false);
+      return;
+    }
+
+    setLoadingMore(true);
+    setLoadMoreError(null);
+
+    try {
+      const res = await ReviewsRepository.getPublicReviews(campusSlug, id, {
+        cursor: nextCursor,
+        limit: REVIEWS_PER_PAGE,
+      });
+
+      const incomingReviews = Array.isArray(res)
+        ? res
+        : Array.isArray(res?.reviews)
+        ? res.reviews
+        : [];
+
+      setReviews((prev) => {
+        const existingIds = new Set(prev.map((r) => r.id));
+        const unique = incomingReviews.filter((r) => !existingIds.has(r.id));
+        return [...prev, ...unique];
+      });
+
+      setNextCursor(res?.nextCursor || null);
+      setHasMore(Boolean(res?.hasMore));
+    } catch (err) {
+      console.error("Failed to load more reviews:", err);
+      setLoadMoreError("Failed to load more reviews. Please try again.");
+    } finally {
+      setLoadingMore(false);
+    }
   }
-  const remainingCount = activeReviews.length - visibleCount;
+
+  const remainingCount =
+    unpaginatedReviews.length > visibleReviews.length
+      ? unpaginatedReviews.length - visibleReviews.length
+      : faculty?.reviewCount != null
+      ? Math.max(0, faculty.reviewCount - visibleReviews.length)
+      : null;
 
   if (!validCampus) {
     return (
@@ -311,24 +400,41 @@ export default function FacultyDetail() {
               </div>
 
               {showSeeMore && (
-                <button
-                  type="button"
-                  onClick={loadMoreReviews}
-                  className="
-                    mt-4 w-full py-3 rounded-xl
-                    border border-gray-200 dark:border-gray-600
-                    bg-white dark:bg-gray-800
-                    text-gray-700 dark:text-gray-300 text-sm font-medium
-                    hover:bg-gray-50 dark:hover:bg-gray-700
-                    transition flex items-center justify-center gap-2
-                  "
-                >
-                  Show more
-                  <span className="text-gray-500 dark:text-gray-400">
-                    ({remainingCount} left)
-                  </span>
-                  <ChevronDown className="w-4 h-4" />
-                </button>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={loadMoreReviews}
+                    disabled={loadingMore}
+                    className="
+                      w-full py-3 rounded-xl
+                      border border-gray-200 dark:border-gray-600
+                      bg-white dark:bg-gray-800
+                      text-gray-700 dark:text-gray-300 text-sm font-medium
+                      hover:bg-gray-50 dark:hover:bg-gray-700
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                      transition flex items-center justify-center gap-2
+                    "
+                  >
+                    {loadingMore ? (
+                      "Loading..."
+                    ) : (
+                      <>
+                        Show more
+                        {remainingCount != null && remainingCount > 0 && (
+                          <span className="text-gray-500 dark:text-gray-400">
+                            ({remainingCount} left)
+                          </span>
+                        )}
+                        <ChevronDown className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                  {loadMoreError && (
+                    <p role="alert" className="mt-2 text-center text-sm text-red-500 dark:text-red-400">
+                      {loadMoreError}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>

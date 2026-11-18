@@ -263,6 +263,78 @@ describe("FacultyDetail Component", () => {
       // Show more button disappears once all reviews are visible
       expect(screen.queryByRole("button", { name: /show more/i })).not.toBeInTheDocument();
     });
+
+    it("fetches the next page using cursor when 'Show more' is clicked and appends results", async () => {
+      const user = userEvent.setup();
+      const page1Reviews = [
+        { id: "r1", text: "Page 1 - Review 1", overall: 4, attendance: 4, correction: 4, teaching: 4, approachability: 4 },
+        { id: "r2", text: "Page 1 - Review 2", overall: 4, attendance: 4, correction: 4, teaching: 4, approachability: 4 },
+        { id: "r3", text: "Page 1 - Review 3", overall: 4, attendance: 4, correction: 4, teaching: 4, approachability: 4 },
+      ];
+      const page2Reviews = [
+        { id: "r4", text: "Page 2 - Review 4", overall: 5, attendance: 5, correction: 5, teaching: 5, approachability: 5 },
+      ];
+
+      ReviewsRepository.getPublicReviews
+        .mockResolvedValueOnce({
+          reviews: page1Reviews,
+          nextCursor: "token-cursor-page-2",
+          hasMore: true,
+        })
+        .mockResolvedValueOnce({
+          reviews: page2Reviews,
+          nextCursor: null,
+          hasMore: false,
+        });
+
+      render(<FacultyDetail />);
+
+      expect(await screen.findByText("Page 1 - Review 1")).toBeInTheDocument();
+      expect(screen.getByText("Page 1 - Review 2")).toBeInTheDocument();
+      expect(screen.getByText("Page 1 - Review 3")).toBeInTheDocument();
+      expect(screen.queryByText("Page 2 - Review 4")).not.toBeInTheDocument();
+
+      const showMoreBtn = screen.getByRole("button", { name: /show more/i });
+      expect(showMoreBtn).toBeInTheDocument();
+
+      await user.click(showMoreBtn);
+
+      expect(ReviewsRepository.getPublicReviews).toHaveBeenCalledWith("vit-v", "fac-101", {
+        cursor: "token-cursor-page-2",
+        limit: 3,
+      });
+
+      // Both page 1 and page 2 reviews should now be visible (appended)
+      expect(await screen.findByText("Page 2 - Review 4")).toBeInTheDocument();
+      expect(screen.getByText("Page 1 - Review 1")).toBeInTheDocument();
+      expect(screen.getByText("Page 1 - Review 2")).toBeInTheDocument();
+      expect(screen.getByText("Page 1 - Review 3")).toBeInTheDocument();
+
+      // Show more button disappears when hasMore is false
+      expect(screen.queryByRole("button", { name: /show more/i })).not.toBeInTheDocument();
+    });
+
+    it("displays error message when loadMoreReviews fails", async () => {
+      const user = userEvent.setup();
+      ReviewsRepository.getPublicReviews
+        .mockResolvedValueOnce({
+          reviews: [
+            { id: "r1", text: "Initial Review", overall: 4, attendance: 4, correction: 4, teaching: 4, approachability: 4 },
+          ],
+          nextCursor: "err-cursor",
+          hasMore: true,
+        })
+        .mockRejectedValueOnce(new Error("Network failed"));
+
+      render(<FacultyDetail />);
+
+      expect(await screen.findByText("Initial Review")).toBeInTheDocument();
+      const showMoreBtn = screen.getByRole("button", { name: /show more/i });
+      await user.click(showMoreBtn);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/failed to load more reviews/i);
+      expect(screen.getByText("Initial Review")).toBeInTheDocument();
+    });
   });
 
   describe("Authentication-dependent review section", () => {

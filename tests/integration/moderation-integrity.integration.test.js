@@ -264,17 +264,18 @@ test("F-02 [INT] - listPublicReviews returns only ACTIVE/legacy reviews, with no
   }
 
   const result = await listPublicReviews(CAMPUS, FACULTY);
-  const comments = result.map((r) => r.comment).sort();
+  const reviewsList = result.reviews;
+  const comments = reviewsList.map((r) => r.comment).sort();
   assert.deepEqual(comments, ["Visible active review", "Visible legacy review"]);
 
-  const legacy = result.find((r) => r.comment === "Visible legacy review");
+  const legacy = reviewsList.find((r) => r.comment === "Visible legacy review");
   assert.equal(legacy.ratings.attendance, 4);
   assert.equal(legacy.ratings.overall, 4);
 
   const serialized = JSON.stringify(result);
   assert.ok(!serialized.includes("uid-"), "no author UID may appear anywhere in the public payload");
   assert.ok(!serialized.includes("userId"), "userId field must not be exposed");
-  for (const r of result) {
+  for (const r of reviewsList) {
     assert.deepEqual(Object.keys(r).sort(), ["comment", "id", "ratings"], "whitelisted fields only");
     assert.match(r.id, /^[0-9a-f]{24}$/, "opaque id");
   }

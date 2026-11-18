@@ -221,12 +221,18 @@ test("restore route - cross-campus authorization is still enforced", async (t) =
 
 import { GET as reviewsGet } from "../app/api/reviews/route.js";
 
+process.env.CURSOR_SECRET =
+  process.env.CURSOR_SECRET || "vitor_test_strong_cursor_secret_key_at_least_32_bytes_2026_test_ok";
+
 for (const [label, query] of [
   ["missing campusSlug", "facultyId=fac-1"],
   ["unknown campusSlug", "campusSlug=not-a-campus&facultyId=fac-1"],
   ["missing facultyId", "campusSlug=vit-ap"],
   ["facultyId containing a path separator", "campusSlug=vit-ap&facultyId=a%2Fb"],
   ["reserved facultyId", "campusSlug=vit-ap&facultyId=.."],
+  ["malformed cursor", "campusSlug=vit-ap&facultyId=fac-1&cursor=not_a_valid_cursor"],
+  ["tampered cursor", "campusSlug=vit-ap&facultyId=fac-1&cursor=abcdef1234567890abcdef1234567890abcdef123456"],
+  ["oversized cursor", `campusSlug=vit-ap&facultyId=fac-1&cursor=${"x".repeat(1025)}`],
 ]) {
   test(`GET /api/reviews - ${label} is a 400`, async () => {
     const res = await reviewsGet({ url: `http://localhost:3000/api/reviews?${query}` });

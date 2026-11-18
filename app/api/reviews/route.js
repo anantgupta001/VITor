@@ -23,6 +23,8 @@ export async function GET(req) {
     const url = new URL(req.url);
     const campusSlug = url.searchParams.get("campusSlug");
     const facultyId = url.searchParams.get("facultyId");
+    const cursor = url.searchParams.get("cursor");
+    const limit = url.searchParams.get("limit");
 
     if (!isValidCampus(campusSlug)) {
       throw new ValidationError("Valid 'campusSlug' is required.");
@@ -31,8 +33,8 @@ export async function GET(req) {
       throw new ValidationError("Valid 'facultyId' is required.");
     }
 
-    const reviews = await listPublicReviews(campusSlug, facultyId);
-    return Response.json({ reviews }, { headers: { "Cache-Control": "no-store" } });
+    const result = await listPublicReviews(campusSlug, facultyId, { cursor, limit });
+    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     return handleApiError(err);
   }

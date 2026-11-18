@@ -152,10 +152,11 @@ export const ReviewsService = {
       throw err;
     }
 
-    // Re-fetch all reviews to ensure full fresh list
+    // Re-fetch reviews to ensure fresh list
     let allReviews = [];
     try {
-      allReviews = await ReviewsRepository.getPublicReviews(campusSlug, facultyId);
+      const publicResult = await ReviewsRepository.getPublicReviews(campusSlug, facultyId);
+      allReviews = Array.isArray(publicResult) ? publicResult : (publicResult?.reviews || []);
     } catch {
       // Fallback to returned review
       if (data.review) allReviews = [data.review];

@@ -7,7 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --test-force-exit tests/auth.service.test.js tests/campus.test.js tests/faculty-utils.test.js tests/faculty.repository.test.js tests/faculty.service.test.js tests/formatters.test.js tests/reviews.repository.test.js tests/reviews.service.test.js tests/user.repository.test.js tests/admin.foundation.test.js tests/aggregates.test.js tests/idempotency.test.js tests/concurrency.test.js tests/rate-limit.test.js tests/maintenance.test.js tests/campus-auth.test.js tests/trusted-reviews.service.test.js tests/reviews-api.test.js tests/reviews-api-hardening.test.js tests/backup.test.js",
+    "test": "node --test --test-force-exit tests/auth.service.test.js tests/campus.test.js tests/faculty-utils.test.js tests/faculty.repository.test.js tests/faculty.service.test.js tests/formatters.test.js tests/reviews.repository.test.js tests/reviews.service.test.js tests/user.repository.test.js tests/admin.foundation.test.js tests/aggregates.test.js tests/idempotency.test.js tests/concurrency.test.js tests/rate-limit.test.js tests/maintenance.test.js tests/campus-auth.test.js tests/trusted-reviews.service.test.js tests/reviews-api.test.js tests/reviews-api-hardening.test.js tests/public-reviews.test.js tests/backup.test.js",
     "test:integration": "node scripts/run-integration-tests.mjs",
     "test:components": "node scripts/run-component-tests.mjs",
     "test:e2e": "node scripts/run-e2e-tests.mjs",
