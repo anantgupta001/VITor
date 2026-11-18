@@ -14,6 +14,9 @@ import FacultyCard from "@/components/FacultyCard";
 import InfoCard from "@/components/InfoCard";
 import FeatureItem from "@/components/FeatureItem";
 import { Search, X } from "lucide-react";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("CampusHome");
 
 const ITEMS_PER_PAGE = 8;
 
@@ -64,7 +67,7 @@ export default function CampusHome() {
         }
       })
       .catch((err) => {
-        console.error("Firestore error (campuses/faculties):", err);
+        log.error("Failed to load faculties:", err);
         if (!cancelled) {
           setLoadError(err?.message || "Failed to load faculty list.");
           setFaculties([]);

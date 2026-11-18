@@ -1,37 +1,41 @@
 /* eslint-disable @next/next/no-img-element */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import LoginButton from "@/components/LoginButton";
 import * as AuthContextModule from "@/context/auth-context";
-import { AuthService } from "@/services/auth/auth.service";
 
 // Mock next/image to render standard img tag
 vi.mock("next/image", () => ({
   default: ({ src, alt, ...props }) => <img src={src} alt={alt} {...props} />,
 }));
 
-// Mock AuthService
-vi.mock("@/services/auth/auth.service", () => ({
-  AuthService: {
-    signInWithGoogle: vi.fn(),
-  },
-}));
-
 describe("LoginButton Component", () => {
   const mockLogout = vi.fn();
+  const mockSignIn = vi.fn();
+  const mockClearAuthError = vi.fn();
+
+  function mockAuth(overrides = {}) {
+    vi.spyOn(AuthContextModule, "useAuth").mockReturnValue({
+      user: null,
+      logout: mockLogout,
+      signIn: mockSignIn,
+      authError: "",
+      clearAuthError: mockClearAuthError,
+      ...overrides,
+    });
+  }
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe("Logged-out state", () => {
-    beforeEach(() => {
-      vi.spyOn(AuthContextModule, "useAuth").mockReturnValue({
-        user: null,
-        logout: mockLogout,
-      });
-    });
+    beforeEach(() => mockAuth());
 
     it("renders 'Sign in with Google' button with icon when logged out", () => {
       render(<LoginButton />);
@@ -43,57 +47,44 @@ describe("LoginButton Component", () => {
       expect(screen.queryByRole("button", { name: /logout/i })).not.toBeInTheDocument();
     });
 
-    it("invokes AuthService.signInWithGoogle when clicked", async () => {
+    it("invokes signIn from the auth context when clicked", async () => {
       const user = userEvent.setup();
-      AuthService.signInWithGoogle.mockResolvedValueOnce({ success: true, user: { uid: "u1" } });
 
       render(<LoginButton />);
-      const button = screen.getByRole("button", { name: /sign in with google/i });
-      await user.click(button);
+      await user.click(screen.getByRole("button", { name: /sign in with google/i }));
 
-      expect(AuthService.signInWithGoogle).toHaveBeenCalledTimes(1);
+      expect(mockSignIn).toHaveBeenCalledTimes(1);
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
 
-    it("displays error alert when signInWithGoogle returns failure with error message", async () => {
-      const user = userEvent.setup();
-      const errorMessage = "Please use your official college email address.";
-      AuthService.signInWithGoogle.mockResolvedValueOnce({
-        success: false,
-        error: errorMessage,
-      });
+    it("displays the auth error from the context as an alert", () => {
+      mockAuth({ authError: "Please use your VIT college email ID to sign in." });
 
       render(<LoginButton />);
-      const button = screen.getByRole("button", { name: /sign in with google/i });
-      await user.click(button);
 
-      const alert = await screen.findByRole("alert");
-      expect(alert).toBeInTheDocument();
-      expect(alert).toHaveTextContent(errorMessage);
+      const alert = screen.getByRole("alert");
+      expect(alert).toHaveTextContent("Please use your VIT college email ID to sign in.");
     });
 
-    it("displays fallback error alert when signInWithGoogle throws an exception", async () => {
-      const user = userEvent.setup();
-      vi.spyOn(console, "error").mockImplementation(() => {});
-      AuthService.signInWithGoogle.mockRejectedValueOnce(new Error("Network connection lost"));
+    it("clears the auth error after the display duration", () => {
+      vi.useFakeTimers();
+      mockAuth({ authError: "Login failed. Please try again." });
 
       render(<LoginButton />);
-      const button = screen.getByRole("button", { name: /sign in with google/i });
-      await user.click(button);
+      expect(mockClearAuthError).not.toHaveBeenCalled();
 
-      const alert = await screen.findByRole("alert");
-      expect(alert).toBeInTheDocument();
-      expect(alert).toHaveTextContent("Login failed. Please try again.");
+      act(() => {
+        vi.advanceTimersByTime(4000);
+      });
+
+      expect(mockClearAuthError).toHaveBeenCalledTimes(1);
     });
   });
 
   describe("Logged-in state", () => {
-    beforeEach(() => {
-      vi.spyOn(AuthContextModule, "useAuth").mockReturnValue({
-        user: { uid: "test-user-123", email: "student@vitstudent.ac.in" },
-        logout: mockLogout,
-      });
-    });
+    beforeEach(() =>
+      mockAuth({ user: { uid: "test-user-123", email: "student@vitstudent.ac.in" } })
+    );
 
     it("renders 'Logout' button and omits sign-in button when logged in", () => {
       render(<LoginButton />);
@@ -106,8 +97,7 @@ describe("LoginButton Component", () => {
       const user = userEvent.setup();
       render(<LoginButton />);
 
-      const logoutBtn = screen.getByRole("button", { name: /logout/i });
-      await user.click(logoutBtn);
+      await user.click(screen.getByRole("button", { name: /logout/i }));
 
       expect(mockLogout).toHaveBeenCalledTimes(1);
     });

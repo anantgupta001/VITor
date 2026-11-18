@@ -20,8 +20,8 @@ export default function RootLayout({ children }) {
           <main className="flex-1">{children}</main>
           <Footer />
         </Providers>
-        <Analytics />
-        <SpeedInsights />
+        <Analytics debug={false} />
+        <SpeedInsights debug={false} />
 
       </body>
     </html>

@@ -11,6 +11,7 @@ import { getFacultyPhoto } from "@/lib/utils/faculty";
 import { getScoreColorClass } from "@/lib/utils/styling";
 import { formatCount } from "@/lib/utils/formatters";
 import ReviewForm from "@/components/ReviewForm";
+import { createLogger } from "@/lib/logger";
 
 import {
   CalendarCheck,
@@ -23,13 +24,15 @@ import {
   ChevronDown,
 } from "lucide-react";
 
+const log = createLogger("FacultyDetail");
+
 const REVIEWS_INITIAL = 3;
 const REVIEWS_PER_PAGE = 3;
 
 export default function FacultyDetail() {
   const { campus: campusSlug, id } = useParams();
   const searchParams = useSearchParams();
-  const { user, userCampus, setUserCampus } = useAuth();
+  const { user, userCampus, setUserCampus, campusError } = useAuth();
   const canRateThisCampus = Boolean(user && userCampus && userCampus === campusSlug);
 
   const page = searchParams.get("page");
@@ -45,6 +48,8 @@ export default function FacultyDetail() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+  const [refreshError, setRefreshError] = useState(null);
   const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [unpaginatedReviews, setUnpaginatedReviews] = useState([]);
@@ -72,6 +77,8 @@ export default function FacultyDetail() {
     setNextCursor(null);
     setHasMore(false);
     setLoadMoreError(null);
+    setLoadError(null);
+    setRefreshError(null);
     setUnpaginatedReviews([]);
     setLoading(true);
     setLoadingMore(false);
@@ -106,7 +113,8 @@ export default function FacultyDetail() {
           }
         }
       } catch (err) {
-        console.error("Failed to load faculty details:", err);
+        log.error("Failed to load faculty details:", err);
+        if (!cancelled) setLoadError("Failed to load faculty details. Please try again later.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -149,6 +157,7 @@ export default function FacultyDetail() {
 
     // Fallback: Re-fetch first page so the new entry is visible and pagination is reset
     setRefreshingReviews(true);
+    setRefreshError(null);
     const requestVersion = requestVersionRef.current;
 
     ReviewsRepository.getPublicReviews(campusSlug, id, { limit: REVIEWS_PER_PAGE })
@@ -171,7 +180,8 @@ export default function FacultyDetail() {
       .catch((err) => {
         if (requestVersion !== requestVersionRef.current) return;
 
-        console.error("Failed to refresh reviews after submission:", err);
+        log.error("Failed to refresh reviews after submission:", err);
+        setRefreshError("Your review was saved, but the list could not be refreshed. Please reload the page.");
       })
       .finally(() => {
         if (requestVersion === requestVersionRef.current) {
@@ -232,7 +242,7 @@ export default function FacultyDetail() {
     } catch (err) {
       if (requestVersion !== requestVersionRef.current) return;
 
-      console.error("Failed to load more reviews:", err);
+      log.error("Failed to load more reviews:", err);
       setLoadMoreError("Failed to load more reviews. Please try again.");
     } finally {
       if (requestVersion === requestVersionRef.current) {
@@ -267,7 +277,7 @@ export default function FacultyDetail() {
   if (!faculty) {
     return (
       <div role="alert" className="p-10 text-red-500 dark:text-red-400">
-        Faculty not found
+        {loadError || "Faculty not found"}
       </div>
     );
   }
@@ -344,6 +354,11 @@ export default function FacultyDetail() {
                       );
                     })}
                   </div>
+                  {campusError && (
+                    <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+                      {campusError}
+                    </p>
+                  )}
                 </div>
               ) : !canRateThisCampus ? (
                 <div className="rounded-xl border border-sky-300 dark:border-sky-600 bg-sky-50 dark:bg-sky-900/30 px-4 py-3 flex gap-3">
@@ -396,6 +411,12 @@ export default function FacultyDetail() {
               {refreshingReviews && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
                   Updating reviews…
+                </p>
+              )}
+
+              {refreshError && (
+                <p role="alert" className="text-sm text-red-500 dark:text-red-400 mb-3">
+                  {refreshError}
                 </p>
               )}
 

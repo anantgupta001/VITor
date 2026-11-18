@@ -4,6 +4,9 @@ import { useId, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { ReviewsService } from "@/services/reviews/reviews.service";
 import { MIN_COMMENT_LENGTH } from "@/lib/constants/review.constants";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ReviewForm");
 
 import {
   CalendarCheck,
@@ -72,7 +75,7 @@ export default function ReviewForm({ campusSlug, facultyId, onReviewSubmitted })
         onReviewSubmitted(result);
       }
     } catch (err) {
-      console.error("Failed to submit review:", err);
+      log.error("Failed to submit review:", err);
       let userMsg = err?.message || "Failed to submit review. Try again.";
       if (err?.statusCode === 429 || err?.code === "RATE_LIMIT_EXCEEDED") {
         userMsg = err.message || "Rate limit reached: Maximum 5 reviews per 24 hours.";

@@ -9,6 +9,7 @@ import { UserRepository } from "@/repositories/user.repository";
 vi.mock("@/services/auth/auth.service", () => ({
   AuthService: {
     subscribeAuthState: vi.fn(),
+    signInWithGoogle: vi.fn(),
     logout: vi.fn(),
   },
 }));
@@ -21,7 +22,7 @@ vi.mock("@/repositories/user.repository", () => ({
 }));
 
 function TestConsumer() {
-  const { user, userCampus, setUserCampus, logout, loading } = useAuth();
+  const { user, userCampus, setUserCampus, logout, loading, signIn, authError, campusError } = useAuth();
 
   return (
     <div>
@@ -37,6 +38,11 @@ function TestConsumer() {
       <button type="button" onClick={logout}>
         Trigger Logout
       </button>
+      <button type="button" onClick={signIn}>
+        Trigger Sign In
+      </button>
+      <span data-testid="auth-error">{authError}</span>
+      <span data-testid="campus-error">{campusError}</span>
     </div>
   );
 }
@@ -273,6 +279,89 @@ describe("AuthContext and AuthProvider", () => {
       expect(UserRepository.updateUserCampus).toHaveBeenCalledWith("user-write-err", "vit-v");
       await waitFor(() => {
         expect(console.error).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe("Sign-in handling", () => {
+    function renderProvider() {
+      render(
+        <AuthProvider>
+          <TestConsumer />
+        </AuthProvider>
+      );
+    }
+
+    it("treats a non-college account as signed out and never fetches its profile", async () => {
+      renderProvider();
+
+      await act(async () => {
+        authSubscriberCallback({ uid: "outsider", email: "person@gmail.com" });
+      });
+
+      expect(screen.getByTestId("user-state")).toHaveTextContent("anonymous");
+      expect(screen.getByTestId("loading-state")).toHaveTextContent("false");
+      expect(UserRepository.getUserProfile).not.toHaveBeenCalled();
+    });
+
+    it("exposes the service's failure message as authError", async () => {
+      const user = userEvent.setup();
+      AuthService.signInWithGoogle.mockResolvedValueOnce({
+        success: false,
+        user: null,
+        error: "Please use your VIT college email ID to sign in.",
+      });
+
+      renderProvider();
+      await user.click(screen.getByRole("button", { name: "Trigger Sign In" }));
+
+      expect(screen.getByTestId("auth-error")).toHaveTextContent(
+        "Please use your VIT college email ID to sign in."
+      );
+    });
+
+    it.each(["auth/popup-closed-by-user", "auth/cancelled-popup-request"])(
+      "ignores %s silently",
+      async (code) => {
+        const user = userEvent.setup();
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        AuthService.signInWithGoogle.mockRejectedValueOnce(Object.assign(new Error("x"), { code }));
+
+        renderProvider();
+        await user.click(screen.getByRole("button", { name: "Trigger Sign In" }));
+
+        expect(screen.getByTestId("auth-error")).toHaveTextContent("");
+        expect(console.error).not.toHaveBeenCalled();
+      }
+    );
+
+    it("reports unexpected sign-in failures with a generic message and logs them", async () => {
+      const user = userEvent.setup();
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      AuthService.signInWithGoogle.mockRejectedValueOnce(new Error("Network connection lost"));
+
+      renderProvider();
+      await user.click(screen.getByRole("button", { name: "Trigger Sign In" }));
+
+      expect(screen.getByTestId("auth-error")).toHaveTextContent("Login failed. Please try again.");
+      expect(console.error).toHaveBeenCalled();
+    });
+
+    it("surfaces a campus preference save failure as campusError", async () => {
+      const user = userEvent.setup();
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      UserRepository.updateUserCampus.mockRejectedValueOnce(new Error("denied"));
+
+      renderProvider();
+      await act(async () => {
+        authSubscriberCallback({ uid: "u", email: "student@vitstudent.ac.in" });
+      });
+      await user.click(screen.getByRole("button", { name: "Select Vellore" }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("campus-error")).toHaveTextContent(
+          "Could not save your campus selection. Please try again."
+        );
       });
     });
   });
