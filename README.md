@@ -194,3 +194,9 @@ All reviews reflect individual student opinions and experiences.
 If you find VITor useful, consider giving the repository a ⭐.
 
 **Built with ❤️ by students, for students.**
+
+## 🔒 Security headers & CSP
+
+`next.config.mjs` sends X-Frame-Options, X-Content-Type-Options, Referrer-Policy and Permissions-Policy everywhere, plus HSTS (`max-age=31536000`) and a CSP in **production builds only**.
+The CSP is sent as `Content-Security-Policy-Report-Only` by default. After verifying Google sign-in, review submission and App Check on the deployed site with the browser console open (no CSP violations), rebuild with `CSP_MODE=enforce` to enforce it.
+Copy `.env.example` to `.env.local` for the list of required environment variables.

@@ -8,6 +8,7 @@
 
 import { authenticateRequest, verifyAppCheck, authorizeFacultyAccess } from "../../../../lib/server/campus-auth.js";
 import { ReviewsTransactionCoordinator } from "../../../../lib/server/reviews-transaction.js";
+import { invalidateFacultyDirectory } from "../../../../lib/server/faculty-directory.js";
 import { extractIdempotencyKey, handleApiError, readJsonObject } from "../../../../lib/server/http.js";
 
 export async function POST(req) {
@@ -34,6 +35,8 @@ export async function POST(req) {
       userId: decodedToken.uid,
       idempotencyKey,
     });
+
+    invalidateFacultyDirectory(campusSlug);
 
     return Response.json(result, { status: 200 });
   } catch (err) {

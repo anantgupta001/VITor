@@ -15,7 +15,8 @@ import {
 } from "../../../lib/server/validation.js";
 import { ReviewsTransactionCoordinator } from "../../../lib/server/reviews-transaction.js";
 import { listPublicReviews } from "../../../lib/server/public-reviews.js";
-import { extractIdempotencyKey, handleApiError } from "../../../lib/server/http.js";
+import { invalidateFacultyDirectory } from "../../../lib/server/faculty-directory.js";
+import { extractIdempotencyKey, handleApiError, readJsonObject } from "../../../lib/server/http.js";
 import { isValidCampus } from "../../../lib/campus.js";
 
 export async function GET(req) {
@@ -49,10 +50,8 @@ export async function POST(req) {
     await verifyAppCheck(req);
 
     // 3. Parse and validate body
-    let body;
-    try {
-      body = await req.json();
-    } catch {
+    const body = await readJsonObject(req);
+    if (!body) {
       return Response.json({ error: "Invalid JSON body", code: "INVALID_BODY" }, { status: 400 });
     }
 
@@ -74,6 +73,8 @@ export async function POST(req) {
       idempotencyKey,
     });
 
+    invalidateFacultyDirectory(campusSlug);
+
     const statusCode = result.statusCode || (result.isNew ? 201 : 200);
     return Response.json(result, { status: statusCode });
   } catch (err) {
@@ -93,11 +94,11 @@ export async function DELETE(req) {
 
     let campusSlug, facultyId;
 
-    try {
-      const body = await req.json();
+    const body = await readJsonObject(req);
+    if (body) {
       campusSlug = body.campusSlug;
       facultyId = body.facultyId;
-    } catch {
+    } else {
       const url = new URL(req.url);
       campusSlug = url.searchParams.get("campusSlug");
       facultyId = url.searchParams.get("facultyId");
@@ -119,6 +120,8 @@ export async function DELETE(req) {
       userId: decodedToken.uid,
       idempotencyKey,
     });
+
+    invalidateFacultyDirectory(campusSlug);
 
     return Response.json(result, { status: 200 });
   } catch (err) {

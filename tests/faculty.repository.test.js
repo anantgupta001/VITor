@@ -20,58 +20,62 @@ test("FacultyRepository.getFaculties - returns empty array when campusSlug is mi
   assert.equal(firestoreMockState.getDocsCalls.length, 0);
 });
 
-test("FacultyRepository.getFaculties - successfully fetches and maps faculty list", async () => {
-  firestoreMockState.reset();
+function mockFetch(t, impl) {
+  const calls = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = async (...args) => {
+    calls.push(args);
+    return impl(...args);
+  };
+  t.after(() => {
+    globalThis.fetch = original;
+  });
+  return calls;
+}
 
-  const mockDocs = [
-    { id: "fac-1", data: () => ({ name: "Dr. A. Sharma", department: "CSE", avgRating: 4.5 }) },
-    { id: "fac-2", data: () => ({ name: "Prof. B. Patel", department: "ECE", avgRating: 3.8 }) },
+const jsonResponse = (body, ok = true, status = 200) => ({
+  ok,
+  status,
+  json: async () => body,
+});
+
+test("FacultyRepository.getFaculties - fetches the faculty list from /api/faculties (no Firestore client read)", async (t) => {
+  firestoreMockState.reset();
+  const faculties = [
+    { id: "fac-1", name: "Dr. A. Sharma", department: "CSE", avgRating: 4.5 },
+    { id: "fac-2", name: "Prof. B. Patel", department: "ECE", avgRating: 3.8 },
   ];
+  const calls = mockFetch(t, async () => jsonResponse({ faculties }));
 
-  firestoreMockState.getDocsHandler = async (ref) => {
-    assert.deepEqual(ref.args, ["campuses", "vit-ap", "faculties"]);
-    return { docs: mockDocs };
-  };
+  const result = await FacultyRepository.getFaculties("vit-ap");
 
-  const faculties = await FacultyRepository.getFaculties("vit-ap");
-
-  assert.equal(faculties.length, 2);
-  assert.deepEqual(faculties[0], { id: "fac-1", name: "Dr. A. Sharma", department: "CSE", avgRating: 4.5 });
-  assert.deepEqual(faculties[1], { id: "fac-2", name: "Prof. B. Patel", department: "ECE", avgRating: 3.8 });
-
-  assert.equal(firestoreMockState.collectionCalls.length, 1);
-  assert.deepEqual(firestoreMockState.collectionCalls[0].args, ["campuses", "vit-ap", "faculties"]);
-  assert.equal(firestoreMockState.getDocsCalls.length, 1);
+  assert.deepEqual(result, faculties);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "/api/faculties?campusSlug=vit-ap");
+  assert.equal(firestoreMockState.getDocsCalls.length, 0);
 });
 
-test("FacultyRepository.getFaculties - handles empty collection gracefully", async () => {
-  firestoreMockState.reset();
+test("FacultyRepository.getFaculties - handles empty or malformed payload gracefully", async (t) => {
+  mockFetch(t, async () => jsonResponse({ faculties: [] }));
+  assert.deepEqual(await FacultyRepository.getFaculties("vit-c"), []);
 
-  firestoreMockState.getDocsHandler = async () => ({ docs: [] });
-
-  const faculties = await FacultyRepository.getFaculties("vit-c");
-
-  assert.equal(Array.isArray(faculties), true);
-  assert.equal(faculties.length, 0);
-  assert.equal(firestoreMockState.getDocsCalls.length, 1);
+  mockFetch(t, async () => jsonResponse({}));
+  assert.deepEqual(await FacultyRepository.getFaculties("vit-c"), []);
 });
 
-test("FacultyRepository.getFaculties - propagates Firestore errors", async () => {
-  firestoreMockState.reset();
+test("FacultyRepository.getFaculties - throws the API error message on failure", async (t) => {
+  mockFetch(t, async () => jsonResponse({ error: "An unexpected error occurred." }, false, 500));
+  await assert.rejects(() => FacultyRepository.getFaculties("vit-b"), {
+    name: "Error",
+    message: "An unexpected error occurred.",
+  });
+});
 
-  firestoreMockState.getDocsHandler = async () => {
-    throw new Error("Firestore read failure: UNAVAILABLE");
-  };
-
-  await assert.rejects(
-    async () => {
-      await FacultyRepository.getFaculties("vit-b");
-    },
-    {
-      name: "Error",
-      message: "Firestore read failure: UNAVAILABLE",
-    }
-  );
+test("FacultyRepository.getFaculties - falls back to a generic message when error body is not JSON", async (t) => {
+  mockFetch(t, async () => ({ ok: false, status: 502, json: async () => { throw new Error("bad json"); } }));
+  await assert.rejects(() => FacultyRepository.getFaculties("vit-b"), {
+    message: "Failed to load faculty list.",
+  });
 });
 
 test("FacultyRepository.getFacultyById - returns null when parameters are missing", async () => {

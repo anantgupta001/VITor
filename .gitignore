@@ -34,3 +34,8 @@ Thumbs.db
 # test results
 /test-results
 /playwright-report
+
+# additional env/credential patterns (keep .env.example tracked)
+.env*.local
+*-firebase-adminsdk-*.json
+*.pem

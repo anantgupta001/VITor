@@ -8,6 +8,7 @@ import { authenticateRequest, verifyAppCheck, isAuthorizedModerator } from "../.
 import { ReviewsTransactionCoordinator } from "../../../../lib/server/reviews-transaction.js";
 import { isValidCampus } from "../../../../lib/campus.js";
 import { isSafeDocumentId } from "../../../../lib/server/validation.js";
+import { invalidateFacultyDirectory } from "../../../../lib/server/faculty-directory.js";
 import { extractIdempotencyKey, handleApiError, readJsonObject } from "../../../../lib/server/http.js";
 
 const MAX_REASON_LENGTH = 500;
@@ -61,6 +62,8 @@ export async function POST(req) {
       reason,
       idempotencyKey,
     });
+
+    invalidateFacultyDirectory(campusSlug);
 
     return Response.json(result, { status: 200 });
   } catch (err) {
